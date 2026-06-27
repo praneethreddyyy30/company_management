@@ -5,7 +5,9 @@ export interface IIntern extends Document {
   batchId: mongoose.Types.ObjectId;
   track: string; // e.g. "Frontend", "Backend", "UI/UX", "Marketing"
   mentor: string; // Name of the mentor assigned
+  mentorId?: mongoose.Types.ObjectId; // Lead assigned to this intern
   status: "active" | "leave" | "off-active" | "completed";
+  employmentType: "full-time" | "intern" | "part-time" | "contract";
   avatar: string;
   startDate: Date;
   endDate: Date;
@@ -34,7 +36,9 @@ const InternSchema = new Schema<IIntern>({
   batchId: { type: Schema.Types.ObjectId, ref: "Batch", required: true, index: true },
   track: { type: String, required: true, index: true },
   mentor: { type: String, default: "Unassigned" },
+  mentorId: { type: Schema.Types.ObjectId, ref: "User", index: true },
   status: { type: String, enum: ["active", "leave", "off-active", "completed"], default: "active", index: true },
+  employmentType: { type: String, enum: ["full-time", "intern", "part-time", "contract"], default: "intern", index: true },
   avatar: { type: String, required: true },
   startDate: { type: Date, required: true },
   endDate: { type: Date, required: true },

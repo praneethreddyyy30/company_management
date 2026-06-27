@@ -11,6 +11,7 @@ export interface AIPerformanceResult {
 
 export interface IAIProvider {
   generatePerformanceSummary(standups: any[]): Promise<AIPerformanceResult>;
+  chat(message: string, context: string): Promise<string>;
 }
 
 // 1. Mock Provider Implementation
@@ -45,6 +46,34 @@ class MockProvider implements IAIProvider {
       constructiveRecommendation,
       grade
     };
+  }
+
+  async chat(message: string, context: string): Promise<string> {
+    const lc = message.toLowerCase();
+    try {
+      const parsed = JSON.parse(context);
+      if (lc.includes("task")) {
+        const pending = parsed.tasks.filter((t: any) => t.status !== "done" && t.status !== "Done").length;
+        const total = parsed.tasks.length;
+        return `There are currently ${pending} pending tasks out of ${total} total assignments in flight.`;
+      }
+      if (lc.includes("evaluat")) {
+        const evalsCount = parsed.evaluations.length;
+        const activeInterns = parsed.interns.length;
+        return `We have recorded ${evalsCount} evaluations across the current cohort of ${activeInterns} active interns.`;
+      }
+      if (lc.includes("perform")) {
+        const sorted = [...parsed.interns].sort((a: any, b: any) => b.performance - a.performance);
+        if (sorted.length > 0) {
+          const top = sorted[0];
+          return `Top performer is currently ${top.name || "Unknown"} with a score of ${top.performance}%.`;
+        }
+        return "No interns are currently listed in the database to calculate top performers.";
+      }
+    } catch (e) {
+      console.warn("Failed to parse mock context:", e);
+    }
+    return "I've checked the live workforce data. Let me know if you need specific metrics about task completions, leave approvals, or performance scores.";
   }
 }
 
@@ -87,6 +116,38 @@ class GeminiProvider implements IAIProvider {
     } catch (error) {
       console.error("[AI] Gemini evaluation failed, falling back to mock:", error);
       return new MockProvider().generatePerformanceSummary(standups);
+    }
+  }
+
+  async chat(message: string, context: string): Promise<string> {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return new MockProvider().chat(message, context);
+    }
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `You are KLASSYGO AI, an intelligent co-pilot for an Internship Management Platform.
+You have access to the following live database context (JSON format):
+${context}
+
+User question: "${message}"
+
+Answer the user question concisely, referencing the live database metrics, names, tasks, or evaluations. Keep the response to 1-3 sentences. Formatting should be simple and elegant.`
+            }]
+          }]
+        })
+      });
+      const responseData = await response.json();
+      return responseData.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+    } catch (e) {
+      console.error("[AI] Gemini Copilot failed, falling back to mock:", e);
+      return new MockProvider().chat(message, context);
     }
   }
 }
@@ -134,6 +195,39 @@ class OpenAIProvider implements IAIProvider {
     } catch (error) {
       console.error("[AI] OpenAI evaluation failed, falling back to mock:", error);
       return new MockProvider().generatePerformanceSummary(standups);
+    }
+  }
+
+  async chat(message: string, context: string): Promise<string> {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return new MockProvider().chat(message, context);
+    }
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: `You are KLASSYGO AI, an intelligent co-pilot for an Internship Management Platform.
+You have access to the following live database context:
+${context}`
+            },
+            { role: "user", content: message }
+          ]
+        })
+      });
+      const responseData = await response.json();
+      return responseData.choices?.[0]?.message?.content || "No response generated.";
+    } catch (e) {
+      console.error("[AI] OpenAI Copilot failed, falling back to mock:", e);
+      return new MockProvider().chat(message, context);
     }
   }
 }

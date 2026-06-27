@@ -23,12 +23,12 @@ router.get("/", authenticateJWT as any, getAllInterns as any);
 router.get("/:id", authenticateJWT as any, getInternById as any);
 
 // POST /api/interns
-router.post("/", authenticateJWT as any, requireRole(["Lead"]) as any, createIntern as any);
+router.post("/", authenticateJWT as any, requireRole(["Admin"]) as any, createIntern as any);
 
 // PUT /api/interns/:id
-router.put("/:id", authenticateJWT as any, requireRole(["Lead"]) as any, updateIntern as any);
+router.put("/:id", authenticateJWT as any, requireRole(["Admin"]) as any, updateIntern as any);
 
 // DELETE /api/interns/:id
-router.delete("/:id", authenticateJWT as any, requireRole(["Lead"]) as any, deleteIntern as any);
+router.delete("/:id", authenticateJWT as any, requireRole(["Admin"]) as any, deleteIntern as any);
 
 export default router;

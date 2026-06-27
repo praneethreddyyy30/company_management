@@ -15,6 +15,7 @@ export interface AuthUser {
   joinedAt: string;
   status?: string;
   employmentType?: string;
+  isDefault?: boolean;
 }
 
 interface AuthState {
@@ -80,6 +81,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       department: res.user.department || "Technology",
       avatar: res.user.avatar || "II",
       joinedAt: res.user.joinedAt || new Date().toISOString(),
+      isDefault: res.user.isDefault,
     };
     set({ user: mappedUser, isAuthenticated: true, authStep: 4 });
     initSocket();
@@ -96,6 +98,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       department: res.user.department || "Technology",
       avatar: res.user.avatar || "II",
       joinedAt: res.user.joinedAt || new Date().toISOString(),
+      isDefault: false,
     };
     set({ user: mappedUser, isAuthenticated: true });
     initSocket();
@@ -115,7 +118,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       return;
     }
     try {
-      const user = await authAPI.getMe();
+      const res = await authAPI.getMe();
+      const user = res.user;
       const mappedUser: AuthUser = {
         id: user.id || user._id,
         name: user.name,
@@ -124,6 +128,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         department: user.department || "Technology",
         avatar: user.avatar || "II",
         joinedAt: user.joinedAt || new Date().toISOString(),
+        isDefault: user.isDefault,
       };
       set({ user: mappedUser, isAuthenticated: true });
       initSocket();

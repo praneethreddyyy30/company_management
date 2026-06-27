@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../middlewares/authMiddleware";
 import { Certificate } from "../models/Certificate";
 import { Intern } from "../models/Intern";
+import { User } from "../models/User";
 import { generateCertificatePDF } from "../services/pdfService";
 import { createNotification } from "../services/notificationService";
 import { logActivity } from "../services/activityService";
@@ -116,15 +117,28 @@ export const requestCertificate = async (req: AuthRequest, res: Response): Promi
     });
     await request.save();
 
-    // 4. Notify Leads
-    const hrLeadId = "60c72b2f9b1d8a2388888888"; // Mock lead recipient or first Lead user
-    await createNotification(
-      hrLeadId,
-      "Certificate Request Submitted",
-      `${req.user.name} requested an internship completion certificate.`,
-      "Certificates",
-      "warning"
-    );
+    // 4. Notify assigned Lead (mentor) or Admin if none assigned
+    const intern = await Intern.findOne({ userId: req.user.id });
+    if (intern && intern.mentorId) {
+      await createNotification(
+        intern.mentorId,
+        "Certificate Request Submitted",
+        `${req.user.name} requested an internship completion certificate.`,
+        "Certificates",
+        "warning"
+      );
+    } else {
+      const admins = await User.find({ role: "Admin" });
+      for (const admin of admins) {
+        await createNotification(
+          admin._id,
+          "Certificate Request (Unassigned Intern)",
+          `${req.user.name} requested a completion certificate.`,
+          "Certificates",
+          "warning"
+        );
+      }
+    }
 
     // 5. Log activity
     await logActivity(
@@ -143,7 +157,7 @@ export const requestCertificate = async (req: AuthRequest, res: Response): Promi
   }
 };
 
-// PUT /api/certificates/:id/approve - Lead approves and compiles PDF
+// PUT /api/certificates/:id/approve - Lead or Admin approves and compiles PDF
 export const approveCertificate = async (req: AuthRequest, res: Response): Promise<void> => {
   const { id } = req.params;
   const { grade = "A" } = req.body;
@@ -153,8 +167,8 @@ export const approveCertificate = async (req: AuthRequest, res: Response): Promi
     return;
   }
 
-  if (req.user.role !== "Lead") {
-    res.status(403).json({ message: "Access forbidden: only Leads can issue certificates." });
+  if (req.user.role !== "Lead" && req.user.role !== "Admin") {
+    res.status(403).json({ message: "Access forbidden: only Leads and Admins can approve certificates." });
     return;
   }
 
@@ -168,6 +182,15 @@ export const approveCertificate = async (req: AuthRequest, res: Response): Promi
     if (certificate.status !== "Pending") {
       res.status(400).json({ message: `Certificate request has already been processed: status is ${certificate.status}` });
       return;
+    }
+
+    // Lead isolation check
+    if (req.user.role === "Lead") {
+      const intern = await Intern.findOne({ userId: certificate.internId._id });
+      if (!intern || !intern.mentorId || intern.mentorId.toString() !== req.user.id) {
+        res.status(403).json({ message: "Access forbidden: you can only approve certificates for your assigned interns." });
+        return;
+      }
     }
 
     // Determine temp file path
@@ -231,7 +254,7 @@ export const approveCertificate = async (req: AuthRequest, res: Response): Promi
   }
 };
 
-// PUT /api/certificates/:id/reject - Lead rejects certificate request
+// PUT /api/certificates/:id/reject - Lead or Admin rejects certificate request
 export const rejectCertificate = async (req: AuthRequest, res: Response): Promise<void> => {
   const { id } = req.params;
   const { reason = "Did not satisfy program completion parameters." } = req.body;
@@ -241,8 +264,8 @@ export const rejectCertificate = async (req: AuthRequest, res: Response): Promis
     return;
   }
 
-  if (req.user.role !== "Lead") {
-    res.status(403).json({ message: "Access forbidden: only Leads process certificate requests." });
+  if (req.user.role !== "Lead" && req.user.role !== "Admin") {
+    res.status(403).json({ message: "Access forbidden: only Leads and Admins can reject certificate requests." });
     return;
   }
 
@@ -256,6 +279,15 @@ export const rejectCertificate = async (req: AuthRequest, res: Response): Promis
     if (certificate.status !== "Pending") {
       res.status(400).json({ message: `Request is already ${certificate.status}` });
       return;
+    }
+
+    // Lead isolation check
+    if (req.user.role === "Lead") {
+      const intern = await Intern.findOne({ userId: certificate.internId._id });
+      if (!intern || !intern.mentorId || intern.mentorId.toString() !== req.user.id) {
+        res.status(403).json({ message: "Access forbidden: you can only reject certificates for your assigned interns." });
+        return;
+      }
     }
 
     certificate.status = "Rejected";
@@ -292,6 +324,11 @@ export const rejectCertificate = async (req: AuthRequest, res: Response): Promis
 export const downloadCertificate = async (req: AuthRequest, res: Response): Promise<void> => {
   const { id } = req.params;
 
+  if (!req.user) {
+    res.status(401).json({ message: "Not authenticated." });
+    return;
+  }
+
   try {
     const cert = await Certificate.findById(id).populate("internId", "name");
     if (!cert) {
@@ -304,16 +341,25 @@ export const downloadCertificate = async (req: AuthRequest, res: Response): Prom
       return;
     }
 
-    // If stored in cloud bucket, redirect the user directly to the object URL
+    // Redirect if hosted remotely
     if (cert.downloadPath.startsWith("http://") || cert.downloadPath.startsWith("https://")) {
       res.redirect(cert.downloadPath);
       return;
     }
 
     // Guard: Interns can only download their own certificate
-    if (req.user && req.user.role === "Intern" && req.user.id !== cert.internId._id.toString()) {
+    if (req.user.role === "Intern" && req.user.id !== cert.internId._id.toString()) {
       res.status(403).json({ message: "Access forbidden: you cannot access other interns' documents." });
       return;
+    }
+
+    // Guard: Leads can only download their assigned interns' certificates
+    if (req.user.role === "Lead") {
+      const intern = await Intern.findOne({ userId: cert.internId._id });
+      if (!intern || !intern.mentorId || intern.mentorId.toString() !== req.user.id) {
+        res.status(403).json({ message: "Access forbidden: this certificate belongs to another Lead's intern." });
+        return;
+      }
     }
 
     // Extract filename from downloadPath or rebuild file path
@@ -347,8 +393,17 @@ export const getAllCertificates = async (req: AuthRequest, res: Response): Promi
 
   try {
     let query: any = {};
+    
+    // Interns: see their own requests
     if (req.user.role === "Intern") {
       query.internId = req.user.id;
+    }
+
+    // Leads: see requests of their assigned interns
+    if (req.user.role === "Lead") {
+      const myInterns = await Intern.find({ mentorId: req.user.id });
+      const myInternUserIds = myInterns.map((i) => i.userId);
+      query.internId = { $in: myInternUserIds };
     }
 
     const list = await Certificate.find(query)

@@ -10,7 +10,7 @@ import { getStorageProvider } from "../services/storageService";
 import fs from "fs";
 import path from "path";
 
-// POST /api/offer-letters - Lead generates offer letter for intern
+// POST /api/offer-letters - Lead or Admin generates offer letter for intern
 export const generateOffer = async (req: AuthRequest, res: Response): Promise<void> => {
   const { internId, salaryDetails, startDate } = req.body;
 
@@ -19,8 +19,8 @@ export const generateOffer = async (req: AuthRequest, res: Response): Promise<vo
     return;
   }
 
-  if (req.user.role !== "Lead") {
-    res.status(403).json({ message: "Access forbidden: only Leads can generate offer letters." });
+  if (req.user.role !== "Lead" && req.user.role !== "Admin") {
+    res.status(403).json({ message: "Access forbidden: only Leads and Admins can generate offer letters." });
     return;
   }
 
@@ -34,6 +34,15 @@ export const generateOffer = async (req: AuthRequest, res: Response): Promise<vo
     if (!internUser || internUser.role !== "Intern") {
       res.status(404).json({ message: "Intern user not found." });
       return;
+    }
+
+    // Lead isolation check
+    if (req.user.role === "Lead") {
+      const internProfile = await Intern.findOne({ userId: internId });
+      if (!internProfile || !internProfile.mentorId || internProfile.mentorId.toString() !== req.user.id) {
+        res.status(403).json({ message: "Access forbidden: you can only generate offer letters for your assigned interns." });
+        return;
+      }
     }
 
     const start = new Date(startDate);
@@ -112,6 +121,11 @@ export const generateOffer = async (req: AuthRequest, res: Response): Promise<vo
 export const downloadOffer = async (req: AuthRequest, res: Response): Promise<void> => {
   const { id } = req.params;
 
+  if (!req.user) {
+    res.status(401).json({ message: "Not authenticated." });
+    return;
+  }
+
   try {
     const offer = await OfferLetter.findById(id).populate("internId", "name");
     if (!offer) {
@@ -126,9 +140,18 @@ export const downloadOffer = async (req: AuthRequest, res: Response): Promise<vo
     }
 
     // Guard: Interns can only download their own offer letter
-    if (req.user && req.user.role === "Intern" && req.user.id !== offer.internId._id.toString()) {
+    if (req.user.role === "Intern" && req.user.id !== offer.internId._id.toString()) {
       res.status(403).json({ message: "Access forbidden: you cannot access other interns' documents." });
       return;
+    }
+
+    // Guard: Leads can only download their assigned interns' offer letters
+    if (req.user.role === "Lead") {
+      const intern = await Intern.findOne({ userId: offer.internId._id });
+      if (!intern || !intern.mentorId || intern.mentorId.toString() !== req.user.id) {
+        res.status(403).json({ message: "Access forbidden: this offer letter belongs to another Lead's intern." });
+        return;
+      }
     }
 
     const uploadDir = path.join(__dirname, "../../../uploads/offer-letters");
@@ -161,8 +184,17 @@ export const getAllOffers = async (req: AuthRequest, res: Response): Promise<voi
 
   try {
     let query: any = {};
+    
+    // Interns: see their own offer letters
     if (req.user.role === "Intern") {
       query.internId = req.user.id;
+    }
+
+    // Leads: see offer letters of their assigned interns
+    if (req.user.role === "Lead") {
+      const myInterns = await Intern.find({ mentorId: req.user.id });
+      const myInternUserIds = myInterns.map((i) => i.userId);
+      query.internId = { $in: myInternUserIds };
     }
 
     const list = await OfferLetter.find(query)

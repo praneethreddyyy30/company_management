@@ -85,11 +85,10 @@ export const submitStandup = async (req: AuthRequest, res: Response): Promise<vo
     // Socket.io broad propagation
     io.emit("standup:submitted", populated);
 
-    // Notify Leads
-    const leads = await User.find({ role: "Lead" });
-    for (const lead of leads) {
+    // Notify assigned Lead
+    if (intern && intern.mentorId) {
       await createNotification(
-        lead._id,
+        intern.mentorId,
         "Daily Standup Submitted",
         `${req.user.name} submitted their daily standup.`,
         "Work",
@@ -105,8 +104,27 @@ export const submitStandup = async (req: AuthRequest, res: Response): Promise<vo
 
 // GET /api/standups - Lead gets all standups
 export const getAllStandups = async (req: AuthRequest, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: "Not authenticated." });
+    return;
+  }
+
   try {
-    const standups = await Standup.find({}).populate("internId", "name email role avatar").sort({ date: -1 });
+    let filter: any = {};
+
+    // Interns can only see their own standups
+    if (req.user.role === "Intern") {
+      filter.internId = req.user.id;
+    }
+
+    // Leads can only see standups of interns assigned to them
+    if (req.user.role === "Lead") {
+      const myInterns = await Intern.find({ mentorId: req.user.id });
+      const myInternUserIds = myInterns.map((i) => i.userId);
+      filter.internId = { $in: myInternUserIds };
+    }
+
+    const standups = await Standup.find(filter).populate("internId", "name email role avatar").sort({ date: -1 });
     res.status(200).json(standups);
   } catch (error) {
     res.status(500).json({ message: `Server error: ${(error as Error).message}` });
@@ -126,6 +144,15 @@ export const getStandupsByIntern = async (req: AuthRequest, res: Response): Prom
   if (req.user.role === "Intern" && req.user.id !== internId) {
     res.status(403).json({ message: "Access forbidden: you can only view your own standups." });
     return;
+  }
+
+  // Guard: Leads can only fetch standups of their assigned interns
+  if (req.user.role === "Lead") {
+    const targetIntern = await Intern.findOne({ userId: internId });
+    if (!targetIntern || !targetIntern.mentorId || targetIntern.mentorId.toString() !== req.user.id) {
+      res.status(403).json({ message: "Access forbidden: this intern is assigned to a different Lead." });
+      return;
+    }
   }
 
   try {

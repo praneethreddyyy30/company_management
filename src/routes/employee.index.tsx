@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { ResponsiveContainer, RadialBarChart, RadialBar } from "recharts";
 import { GlassCard } from "@/components/common/GlassCard";
@@ -148,9 +148,10 @@ function OnboardingChecklist({
   setGuideModalOpen
 }: {
   status: any;
-  onCompleteStep: (step: string) => void;
+  onCompleteStep: (step: string) => Promise<void>;
   setGuideModalOpen: (o: boolean) => void;
 }) {
+  const navigate = useNavigate();
   if (!status || status.completed) return null;
 
   const steps = [
@@ -197,15 +198,15 @@ function OnboardingChecklist({
               {!isDone && (
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     if (s.action === "profile") {
-                      onCompleteStep("profileCompleted");
-                      window.location.href = "/employee/profile";
+                      await onCompleteStep("profileCompleted");
+                      navigate({ to: "/employee/profile" });
                     } else if (s.action === "guide") {
                       setGuideModalOpen(true);
                     } else if (s.action === "tasks") {
-                      onCompleteStep("tasksReviewed");
-                      window.location.href = "/employee/tasks";
+                      await onCompleteStep("tasksReviewed");
+                      navigate({ to: "/employee/tasks" });
                     } else if (s.action === "standup") {
                       document.getElementById("standup-form")?.scrollIntoView({ behavior: "smooth" });
                     } else if (s.action === "attendance") {

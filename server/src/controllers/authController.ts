@@ -16,14 +16,63 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  if (role !== "Lead" && role !== "Intern") {
-    res.status(400).json({ message: "Role must be either 'Lead' or 'Intern'." });
+  if (role !== "Admin" && role !== "Lead" && role !== "Intern") {
+    res.status(400).json({ message: "Role must be 'Admin', 'Lead', or 'Intern'." });
     return;
   }
 
+  const normalizedEmail = email.trim().toLowerCase();
+
   try {
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
+      // Check if existing user password matches default "password123"
+      const isDefault = await bcrypt.compare("password123", existingUser.password as string);
+      if (isDefault) {
+        // Allow updating/setting the password
+        const hashedPassword = await bcrypt.hash(password, 10);
+        existingUser.password = hashedPassword;
+        if (name) existingUser.name = name;
+        if (avatar) existingUser.avatar = avatar;
+        await existingUser.save();
+
+        const token = jwt.sign(
+          {
+            id: existingUser._id,
+            name: existingUser.name,
+            email: existingUser.email,
+            role: existingUser.role,
+            department: existingUser.department,
+          },
+          process.env.JWT_SECRET || "klassygo_secret_key_12345_67890",
+          { expiresIn: "24h" }
+        );
+
+        await logActivity(
+          existingUser._id.toString(),
+          existingUser.name,
+          "USER_CLAIMED",
+          "Claimed pre-created user profile and set password",
+          "AUTH",
+          "MED",
+          req
+        );
+
+        res.status(200).json({
+          message: "User registered successfully.",
+          token,
+          user: {
+            id: existingUser._id,
+            name: existingUser.name,
+            email: existingUser.email,
+            role: existingUser.role,
+            department: existingUser.department,
+            avatar: existingUser.avatar,
+          },
+        });
+        return;
+      }
+
       res.status(400).json({ message: "User with this email already exists." });
       return;
     }
@@ -45,7 +94,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     const newUser = new User({
       name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       role,
       department,
@@ -120,8 +169,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
+  const normalizedEmail = email.trim().toLowerCase();
+
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       res.status(401).json({ message: "Invalid email or password." });
       return;
@@ -167,6 +218,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         department: user.department,
         avatar: user.avatar,
         joinedAt: user.joinedAt,
+        isDefault: password === "password123",
       },
     });
   } catch (error) {
@@ -206,13 +258,90 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
   }
 
   try {
-    const user = await User.findById(req.user.id).select("-password");
+    const user = await User.findById(req.user.id);
     if (!user) {
       res.status(404).json({ message: "User not found." });
       return;
     }
 
-    res.status(200).json({ user });
+    const isDefault = await bcrypt.compare("password123", user.password as string);
+    const userObj = user.toObject();
+    delete userObj.password;
+
+    res.status(200).json({ user: { ...userObj, isDefault } });
+  } catch (error) {
+    res.status(500).json({ message: `Server error: ${(error as Error).message}` });
+  }
+};
+
+// PUT /api/auth/change-password
+export const changePassword = async (req: AuthRequest, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: "Not authenticated." });
+    return;
+  }
+
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ message: "Current password and new password are required." });
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    res.status(400).json({ message: "New password must be at least 6 characters long." });
+    return;
+  }
+
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      res.status(404).json({ message: "User not found." });
+      return;
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password as string);
+    if (!isMatch) {
+      res.status(400).json({ message: "Current password entered is incorrect." });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    await logActivity(
+      user._id.toString(),
+      user.name,
+      "USER_PASSWORD_CHANGED",
+      "Successfully changed user password",
+      "AUTH",
+      "MED",
+      req
+    );
+
+    res.status(200).json({ message: "Password updated successfully." });
+  } catch (error) {
+    res.status(500).json({ message: `Server error: ${(error as Error).message}` });
+  }
+};
+
+// GET /api/auth/leads
+export const getAllLeads = async (req: AuthRequest, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: "Not authenticated." });
+    return;
+  }
+
+  // Only Admin or Lead can see list of Leads
+  if (req.user.role !== "Admin" && req.user.role !== "Lead") {
+    res.status(403).json({ message: "Forbidden." });
+    return;
+  }
+
+  try {
+    const leads = await User.find({ role: "Lead" }).select("-password");
+    res.status(200).json(leads);
   } catch (error) {
     res.status(500).json({ message: `Server error: ${(error as Error).message}` });
   }

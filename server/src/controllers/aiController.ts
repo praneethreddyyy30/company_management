@@ -3,6 +3,8 @@ import { AuthRequest } from "../middlewares/authMiddleware";
 import { Standup } from "../models/Standup";
 import { AIPerformance } from "../models/AIPerformance";
 import { Intern } from "../models/Intern";
+import { Task } from "../models/Task";
+import { Evaluation } from "../models/Evaluation";
 import { getAIProvider } from "../services/aiService";
 import { createNotification } from "../services/notificationService";
 import { logActivity } from "../services/activityService";
@@ -160,5 +162,52 @@ export const runWeeklyPerformanceAudit = async () => {
     console.log(`[AI Cron] Evaluation completed. Summarized ${count} intern(s).`);
   } catch (error) {
     console.error("[AI Cron] Audit trigger error:", error);
+  }
+};
+
+// POST /api/ai-performance/chat - Chat with AI Copilot using DB context
+export const copilotChat = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { message } = req.body;
+
+  if (!message) {
+    res.status(400).json({ message: "Message is required." });
+    return;
+  }
+
+  try {
+    // 1. Fetch DB records to construct context
+    const interns = await Intern.find({}).populate("userId", "name email role department");
+    const tasks = await Task.find({});
+    const evaluations = await Evaluation.find({});
+
+    const contextObj = {
+      interns: interns.map(i => ({
+        name: i.userId ? (i.userId as any).name : "Unknown",
+        email: i.userId ? (i.userId as any).email : "",
+        track: i.track,
+        performance: i.performance,
+        lmsProgress: i.lmsProgress
+      })),
+      tasks: tasks.map(t => ({
+        title: t.title,
+        status: t.status,
+        priority: t.priority
+      })),
+      evaluations: evaluations.map(e => ({
+        rating: e.rating,
+        category: e.category
+      }))
+    };
+
+    const contextStr = JSON.stringify(contextObj);
+
+    // 2. Call active AI provider
+    const aiEngine = getAIProvider();
+    const reply = await aiEngine.chat(message, contextStr);
+
+    res.status(200).json({ reply });
+  } catch (error) {
+    console.error("[AI Chat] Controller error:", error);
+    res.status(500).json({ message: `AI Chat error: ${(error as Error).message}` });
   }
 };

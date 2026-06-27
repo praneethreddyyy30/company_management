@@ -118,7 +118,10 @@ export function Sidebar() {
 
       {/* User card */}
       {!collapsed && user && (
-        <div className="mx-3 mb-3 rounded-xl border border-white/[0.07] bg-white/[0.04] p-2.5 backdrop-blur-xl">
+        <Link
+          to="/dashboard/profile"
+          className="mx-3 mb-3 block rounded-xl border border-white/[0.07] bg-white/[0.04] p-2.5 backdrop-blur-xl hover:bg-white/[0.08] transition-colors cursor-pointer"
+        >
           <div className="flex items-center gap-2.5">
             <div className="relative">
               <div className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-kcyan via-kviolet to-kgold animate-hue" />
@@ -135,7 +138,7 @@ export function Sidebar() {
               </div>
             </div>
           </div>
-        </div>
+        </Link>
       )}
 
       {/* Nav */}

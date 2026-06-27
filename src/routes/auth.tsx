@@ -590,7 +590,7 @@ function Step4() {
     }
 
     try {
-      const mappedRole = role === "Admin" || role === "Management" || role === "Lead" ? "Lead" : "Intern";
+      const mappedRole = (role === "Admin" || role === "Management") ? "Admin" : (role === "Lead" ? "Lead" : "Intern");
       
       const res = await useAuthStore.getState().register({
         name: formDraft.fullName || "Arjun Mehta",

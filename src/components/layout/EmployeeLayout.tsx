@@ -124,6 +124,25 @@ export function EmployeeLayout({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="pl-[220px]">
+        {user?.isDefault && (
+          <div className="mx-6 mt-6 rounded-xl border border-kcyan/20 bg-gradient-to-r from-kcyan/8 via-carbon to-transparent p-3.5 shadow-[0_4px_20px_rgba(6,200,216,0.1)] flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-kcyan/10 text-kcyan text-base">
+                ⚠️
+              </span>
+              <div>
+                <div className="font-display text-[13px] font-semibold text-white">Security Alert: Default Password Active</div>
+                <div className="text-[11.5px] text-white/55 mt-0.5">For security, please change your password from the default one.</div>
+              </div>
+            </div>
+            <Link 
+              to="/employee/profile" 
+              className="inline-flex h-8 items-center justify-center rounded-lg bg-kcyan/10 border border-kcyan/20 px-3 text-[11px] font-semibold text-kcyan hover:bg-kcyan/20 hover:border-kcyan/30 transition-all cursor-pointer"
+            >
+              Change Password
+            </Link>
+          </div>
+        )}
         <main className="px-6 py-6">
           <AnimatePresence mode="wait">
             <motion.div

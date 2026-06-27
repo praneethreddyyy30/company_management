@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { register, login, logout, getMe } from "../controllers/authController";
+import { register, login, logout, getMe, getAllLeads, changePassword } from "../controllers/authController";
 import { authenticateJWT } from "../middlewares/authMiddleware";
 
 const router = Router();
@@ -15,5 +15,11 @@ router.post("/logout", authenticateJWT as any, logout as any);
 
 // GET /api/auth/me
 router.get("/me", authenticateJWT as any, getMe as any);
+
+// GET /api/auth/leads
+router.get("/leads", authenticateJWT as any, getAllLeads as any);
+
+// PUT /api/auth/change-password
+router.put("/change-password", authenticateJWT as any, changePassword as any);
 
 export default router;

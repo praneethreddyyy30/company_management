@@ -5,8 +5,9 @@ import { GlowBadge } from "@/components/common/GlowBadge";
 import { Avatar } from "@/components/common/Avatar";
 import { useAuthStore } from "@/stores/authStore";
 import { useHRMStore } from "@/stores/hrmStore";
-import { Sparkles } from "lucide-react";
-import { aiPerformanceAPI } from "@/lib/api";
+import { Sparkles, Lock } from "lucide-react";
+import { aiPerformanceAPI, authAPI } from "@/lib/api";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/employee/profile")({ component: Profile });
 
@@ -16,6 +17,42 @@ function Profile() {
 
   const [aiPerformance, setAiPerformance] = useState<any | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [submittingPassword, setSubmittingPassword] = useState(false);
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      toast.error("New password must be at least 6 characters long.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("New password and confirmation do not match.");
+      return;
+    }
+
+    setSubmittingPassword(true);
+    try {
+      await authAPI.changePassword({ currentPassword, newPassword });
+      toast.success("Password changed successfully!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      
+      // Mark as not default
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        useAuthStore.getState().setUser({ ...currentUser, isDefault: false });
+      }
+    } catch (err: any) {
+      console.error("Password update error:", err);
+    } finally {
+      setSubmittingPassword(false);
+    }
+  };
 
   useEffect(() => {
     if (user?.id) {
@@ -58,7 +95,7 @@ function Profile() {
             { k: "Manager", v: "Vikram Iyer" },
             { k: "Location", v: "Bengaluru, India" },
             { k: "Status", v: emp?.status ? (emp.status === "active" ? "Active" : emp.status === "leave" ? "On Leave" : "Off Active") : "Active" },
-            { k: "Employment Type", v: emp?.employmentType ? (emp.employmentType.charAt(0).toUpperCase() + emp.employmentType.slice(1)) : "Full-Time" },
+            { k: "Employment Type", v: emp?.employmentType ? (emp.employmentType.charAt(0).toUpperCase() + emp.employmentType.slice(1)) : (user?.role === "Intern" ? "Intern" : "Full-Time") },
           ].map((r) => (
             <div key={r.k} className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
               <div className="text-[10px] font-mono uppercase tracking-wider text-white/40">
@@ -142,6 +179,60 @@ function Profile() {
             No standup evaluation compiled yet. Keep submitting daily standups, and your lead can compile your performance review!
           </div>
         )}
+      </GlassCard>
+
+      {/* Change Password Card */}
+      <GlassCard className="p-6 border-white/5 bg-white/[0.01] relative overflow-hidden">
+        <div className="flex items-center gap-2.5 mb-5">
+          <Lock className="h-5 w-5 text-kcyan" />
+          <div>
+            <h2 className="font-display text-[18px] font-bold tracking-tight">Security Settings</h2>
+            <p className="text-[11.5px] text-white/55">Update your account password</p>
+          </div>
+        </div>
+
+        <form onSubmit={handlePasswordChange} className="space-y-4 max-w-sm">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-white/45">Current Password</label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              className="w-full h-10 px-3 rounded-lg border border-white/10 bg-white/[0.02] text-[13px] text-white focus:outline-none focus:border-kcyan transition-colors"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-white/45">New Password</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Min 6 characters"
+              required
+              className="w-full h-10 px-3 rounded-lg border border-white/10 bg-white/[0.02] text-[13px] text-white focus:outline-none focus:border-kcyan transition-colors"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-white/45">Confirm New Password</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm new password"
+              required
+              className="w-full h-10 px-3 rounded-lg border border-white/10 bg-white/[0.02] text-[13px] text-white focus:outline-none focus:border-kcyan transition-colors"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={submittingPassword}
+            className="h-10 px-5 rounded-lg bg-gradient-to-r from-kblue to-kcyan text-[13px] font-semibold text-white transition-all hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {submittingPassword ? "Updating Password..." : "Update Password"}
+          </button>
+        </form>
       </GlassCard>
     </div>
   );

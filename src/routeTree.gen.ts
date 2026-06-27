@@ -24,6 +24,7 @@ import { Route as EmployeeDirectoryRouteImport } from './routes/employee.directo
 import { Route as DashboardWorkRouteImport } from './routes/dashboard.work'
 import { Route as DashboardTalentRouteImport } from './routes/dashboard.talent'
 import { Route as DashboardReportsRouteImport } from './routes/dashboard.reports'
+import { Route as DashboardProfileRouteImport } from './routes/dashboard.profile'
 import { Route as DashboardPoliciesRouteImport } from './routes/dashboard.policies'
 import { Route as DashboardOrgRouteImport } from './routes/dashboard.org'
 import { Route as DashboardOnboardingRouteImport } from './routes/dashboard.onboarding'
@@ -110,6 +111,11 @@ const DashboardReportsRoute = DashboardReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardProfileRoute = DashboardProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardPoliciesRoute = DashboardPoliciesRouteImport.update({
   id: '/policies',
   path: '/policies',
@@ -176,6 +182,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/onboarding': typeof DashboardOnboardingRoute
   '/dashboard/org': typeof DashboardOrgRoute
   '/dashboard/policies': typeof DashboardPoliciesRoute
+  '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/reports': typeof DashboardReportsRoute
   '/dashboard/talent': typeof DashboardTalentRoute
   '/dashboard/work': typeof DashboardWorkRoute
@@ -201,6 +208,7 @@ export interface FileRoutesByTo {
   '/dashboard/onboarding': typeof DashboardOnboardingRoute
   '/dashboard/org': typeof DashboardOrgRoute
   '/dashboard/policies': typeof DashboardPoliciesRoute
+  '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/reports': typeof DashboardReportsRoute
   '/dashboard/talent': typeof DashboardTalentRoute
   '/dashboard/work': typeof DashboardWorkRoute
@@ -229,6 +237,7 @@ export interface FileRoutesById {
   '/dashboard/onboarding': typeof DashboardOnboardingRoute
   '/dashboard/org': typeof DashboardOrgRoute
   '/dashboard/policies': typeof DashboardPoliciesRoute
+  '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/reports': typeof DashboardReportsRoute
   '/dashboard/talent': typeof DashboardTalentRoute
   '/dashboard/work': typeof DashboardWorkRoute
@@ -258,6 +267,7 @@ export interface FileRouteTypes {
     | '/dashboard/onboarding'
     | '/dashboard/org'
     | '/dashboard/policies'
+    | '/dashboard/profile'
     | '/dashboard/reports'
     | '/dashboard/talent'
     | '/dashboard/work'
@@ -283,6 +293,7 @@ export interface FileRouteTypes {
     | '/dashboard/onboarding'
     | '/dashboard/org'
     | '/dashboard/policies'
+    | '/dashboard/profile'
     | '/dashboard/reports'
     | '/dashboard/talent'
     | '/dashboard/work'
@@ -310,6 +321,7 @@ export interface FileRouteTypes {
     | '/dashboard/onboarding'
     | '/dashboard/org'
     | '/dashboard/policies'
+    | '/dashboard/profile'
     | '/dashboard/reports'
     | '/dashboard/talent'
     | '/dashboard/work'
@@ -437,6 +449,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardReportsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/profile': {
+      id: '/dashboard/profile'
+      path: '/profile'
+      fullPath: '/dashboard/profile'
+      preLoaderRoute: typeof DashboardProfileRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/dashboard/policies': {
       id: '/dashboard/policies'
       path: '/policies'
@@ -521,6 +540,7 @@ interface DashboardRouteChildren {
   DashboardOnboardingRoute: typeof DashboardOnboardingRoute
   DashboardOrgRoute: typeof DashboardOrgRoute
   DashboardPoliciesRoute: typeof DashboardPoliciesRoute
+  DashboardProfileRoute: typeof DashboardProfileRoute
   DashboardReportsRoute: typeof DashboardReportsRoute
   DashboardTalentRoute: typeof DashboardTalentRoute
   DashboardWorkRoute: typeof DashboardWorkRoute
@@ -538,6 +558,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardOnboardingRoute: DashboardOnboardingRoute,
   DashboardOrgRoute: DashboardOrgRoute,
   DashboardPoliciesRoute: DashboardPoliciesRoute,
+  DashboardProfileRoute: DashboardProfileRoute,
   DashboardReportsRoute: DashboardReportsRoute,
   DashboardTalentRoute: DashboardTalentRoute,
   DashboardWorkRoute: DashboardWorkRoute,

@@ -18,12 +18,13 @@ import {
   type TaskStatus,
   type LeaveStatus,
 } from "@/data/mockData";
-import { internAPI, taskAPI, batchAPI, leaveAPI, candidateAPI, policyAPI, evaluationAPI } from "@/lib/api";
+import { internAPI, taskAPI, batchAPI, leaveAPI, candidateAPI, policyAPI, evaluationAPI, authAPI } from "@/lib/api";
 import { toast } from "sonner";
 import { useAuthStore } from "./authStore";
 
 interface HRMState {
   employees: Employee[];
+  leads: any[];
   tasks: Task[];
   batches: any[];
   leaves: Leave[];
@@ -54,6 +55,7 @@ const STAGES: CandidateStage[] = ["applied", "screening", "interview", "offer", 
 
 export const useHRMStore = create<HRMState>((set, get) => ({
   employees: [], // loaded from API
+  leads: [], // loaded from API
   tasks: [], // loaded from API
   batches: [], // loaded from API
   leaves: [],
@@ -92,11 +94,22 @@ export const useHRMStore = create<HRMState>((set, get) => ({
       }
       set({ batches });
 
-      // 2. Fetch Interns
+      // 2. Fetch Leads
+      let leadsList: any[] = [];
+      if (isLead) {
+        try {
+          leadsList = await authAPI.getLeads();
+        } catch (err) {
+          console.warn("Failed to fetch leads list:", err);
+        }
+      }
+      set({ leads: leadsList });
+
+      // 3. Fetch Interns
       const employees = await internAPI.getAll();
       set({ employees });
 
-      // 3. Fetch Tasks
+      // 4. Fetch Tasks
       const tasks = await taskAPI.getAll();
       
       // Map task.assignedTo (User ID) to intern._id (Employee ID) for frontend matching
@@ -223,12 +236,14 @@ export const useHRMStore = create<HRMState>((set, get) => ({
         email: empRecord.email,
         track,
         department: empRecord.department,
-        mentor: "Vikram Iyer", // Default mentor as Lead
+        mentor: empRecord.mentor || "Unassigned",
+        mentorId: empRecord.mentorId || undefined,
         batchId,
         startDate: empRecord.joinedAt || new Date().toISOString().slice(0, 10),
         endDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
         avatar: empRecord.avatar,
         status: empRecord.status || "active",
+        employmentType: empRecord.employmentType || "intern",
       };
 
       const newEmp = await internAPI.create(apiPayload);
@@ -251,9 +266,13 @@ export const useHRMStore = create<HRMState>((set, get) => ({
       if (updatedFields.email) apiPayload.email = updatedFields.email;
       if (updatedFields.department) apiPayload.department = updatedFields.department;
       if (updatedFields.status) apiPayload.status = updatedFields.status;
+      if (updatedFields.employmentType) apiPayload.employmentType = updatedFields.employmentType;
       if (updatedFields.performance !== undefined) apiPayload.performance = updatedFields.performance;
       if (updatedFields.lmsProgress !== undefined) apiPayload.lmsProgress = updatedFields.lmsProgress;
       if (updatedFields.tasksCompleted !== undefined) apiPayload.tasksCompleted = updatedFields.tasksCompleted;
+      if (updatedFields.mentorId !== undefined) {
+        apiPayload.mentorId = updatedFields.mentorId; // can be null/empty
+      }
       
       // If status leaves or off-active
       if (updatedFields.status === "leave" || updatedFields.status === "off-active") {

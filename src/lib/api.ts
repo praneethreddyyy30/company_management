@@ -67,7 +67,7 @@ export function mapInternToEmployee(intern: any): any {
     role: `${intern.track || "General"} Intern`,
     department: user.department || "Technology",
     status: intern.status || "active",
-    employmentType: "intern",
+    employmentType: intern.employmentType || "intern",
     avatar: intern.avatar || user.avatar || "II",
     joinedAt: intern.startDate ? new Date(intern.startDate).toISOString().split("T")[0] : "",
     performance: intern.performance ?? 80,
@@ -80,6 +80,7 @@ export function mapInternToEmployee(intern: any): any {
     batchId: intern.batchId?._id || intern.batchId,
     track: intern.track,
     mentor: intern.mentor,
+    mentorId: intern.mentorId,
     startDate: intern.startDate,
     endDate: intern.endDate,
     currentTaskId: intern.currentTaskId,
@@ -140,6 +141,9 @@ export const authAPI = {
   getMe: async () => {
     return apiRequest<any>("/auth/me", "GET");
   },
+  getLeads: async () => {
+    return apiRequest<any[]>("/auth/leads", "GET");
+  },
   logout: async () => {
     try {
       await apiRequest<any>("/auth/logout", "POST");
@@ -148,6 +152,9 @@ export const authAPI = {
     }
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+  },
+  changePassword: async (passwords: any) => {
+    return apiRequest<any>("/auth/change-password", "PUT", passwords);
   }
 };
 
@@ -283,6 +290,9 @@ export const aiPerformanceAPI = {
   },
   regenerate: async (internId: string) => {
     return apiRequest<any>(`/ai-performance/${internId}/regenerate`, "POST");
+  },
+  chat: async (message: string) => {
+    return apiRequest<{ reply: string }>("/ai-performance/chat", "POST", { message });
   }
 };
 

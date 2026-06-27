@@ -20,6 +20,8 @@ export interface Employee {
   tasksCompleted: number;
   lmsProgress: number;
   userId?: any;
+  mentorId?: string;
+  mentor?: string;
 }
 
 export interface Task {

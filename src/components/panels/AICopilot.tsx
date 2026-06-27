@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles, Send, X } from "lucide-react";
 import { useState } from "react";
 import { useAppStore } from "@/stores/appStore";
+import { aiPerformanceAPI } from "@/lib/api";
 
 interface Msg {
   role: "user" | "ai";
@@ -11,7 +12,7 @@ interface Msg {
 const seedMsgs: Msg[] = [
   {
     role: "ai",
-    text: "Hi Arjun — I'm KLASSYGO AI. I can summarise activity, flag risks, and surface insights across HRM, ERP & CRM. What would you like to know?",
+    text: "Hi — I'm KLASSYGO AI. I can summarise activity, flag risks, and surface insights across HRM, ERP & CRM. What would you like to know?",
   },
 ];
 
@@ -28,15 +29,23 @@ export function AICopilot() {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
 
-  const send = (text: string) => {
+  const send = async (text: string) => {
     if (!text.trim()) return;
     setMsgs((m) => [...m, { role: "user", text }]);
     setInput("");
     setTyping(true);
-    setTimeout(() => {
+    try {
+      const res = await aiPerformanceAPI.chat(text);
+      setMsgs((m) => [...m, { role: "ai", text: res.reply }]);
+    } catch (error) {
+      console.error("[Copilot Chat] Error:", error);
+      setMsgs((m) => [
+        ...m,
+        { role: "ai", text: "I'm having trouble retrieving live metrics right now. Please try again." }
+      ]);
+    } finally {
       setTyping(false);
-      setMsgs((m) => [...m, { role: "ai", text: aiReply(text) }]);
-    }, 900);
+    }
   };
 
   return (
@@ -145,15 +154,4 @@ export function AICopilot() {
       )}
     </AnimatePresence>
   );
-}
-
-function aiReply(q: string): string {
-  const lc = q.toLowerCase();
-  if (lc.includes("task"))
-    return "You have 6 high-priority tasks in flight. Vikram and Arjun own 4 of them. Want me to draft a stand-up summary?";
-  if (lc.includes("evaluat"))
-    return "3 evaluations are pending this week — Ananya Singh (Design), Karthik Nair (Finance), and Nikhil Joshi (DevOps). All overdue by ≥2 days.";
-  if (lc.includes("perform"))
-    return "Top performers this month: Sanjay Krishnan (97), Vikram Iyer (95), Tara D'Souza (93). Workforce score is trending +2.1% week-over-week.";
-  return "Got it. I've cross-referenced this against HRM, LMS and Talent pipelines — drilling down now. Anything specific you'd like surfaced?";
 }

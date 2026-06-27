@@ -31,6 +31,7 @@ import { StatCard } from "@/components/common/StatCard";
 import { Avatar } from "@/components/common/Avatar";
 import { GlowBadge } from "@/components/common/GlowBadge";
 import { useHRMStore } from "@/stores/hrmStore";
+import { useAuthStore } from "@/stores/authStore";
 import { toast } from "sonner";
 import { aiPerformanceAPI, standupAPI } from "@/lib/api";
 import {
@@ -103,7 +104,9 @@ export const Route = createFileRoute("/dashboard/hrm")({
 type HRMTab = "directory" | "analytics" | "logs" | "standups";
 
 function HRMCore() {
+  const user = useAuthStore((s) => s.user);
   const employees = useHRMStore((s) => s.employees) || [];
+  const leads = useHRMStore((s) => s.leads) || [];
   const tasks = useHRMStore((s) => s.tasks) || [];
   const leaves = useHRMStore((s) => s.leaves) || [];
   const evaluations = useHRMStore((s) => s.evaluations) || [];
@@ -157,6 +160,8 @@ function HRMCore() {
     employmentType: "full-time" as EmploymentType,
     performance: 85,
     lmsProgress: 50,
+    mentorId: "",
+    mentor: "Unassigned",
   });
 
   // Add Task Form State - using static dates to prevent timezone hydration mismatch
@@ -311,6 +316,8 @@ function HRMCore() {
       performance: Number(newEmp.performance),
       lmsProgress: Number(newEmp.lmsProgress),
       tasksCompleted: 0,
+      mentorId: newEmp.mentorId || undefined,
+      mentor: newEmp.mentor || "Unassigned",
     };
     addEmployee(newEmployeeRecord);
     toast.success("Employee successfully added!");
@@ -324,6 +331,8 @@ function HRMCore() {
       employmentType: "full-time",
       performance: 85,
       lmsProgress: 50,
+      mentorId: "",
+      mentor: "Unassigned",
     });
   };
 
@@ -553,12 +562,14 @@ function HRMCore() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            onClick={() => setShowAddEmpModal(true)}
-            className="flex h-9 items-center gap-1.5 rounded-full bg-gradient-to-r from-kcyan to-kblue px-4 text-[12px] font-semibold text-white shadow-[0_8px_20px_rgba(6,200,216,0.2)] hover:opacity-90 cursor-pointer"
-          >
-            <UserPlus className="h-3.5 w-3.5" /> Add Employee
-          </button>
+          {user?.role === "Admin" && (
+            <button
+              onClick={() => setShowAddEmpModal(true)}
+              className="flex h-9 items-center gap-1.5 rounded-full bg-gradient-to-r from-kcyan to-kblue px-4 text-[12px] font-semibold text-white shadow-[0_8px_20px_rgba(6,200,216,0.2)] hover:opacity-90 cursor-pointer"
+            >
+              <UserPlus className="h-3.5 w-3.5" /> Add Employee
+            </button>
+          )}
           <button
             onClick={() => {
               setNewTask((prev) => ({ ...prev, assignedTo: "" }));
@@ -1403,6 +1414,29 @@ function HRMCore() {
                   className="w-full h-9 rounded-md border border-white/10 bg-white/5 px-3 focus:border-kcyan focus:outline-none"
                 />
               </div>
+              <div>
+                <label className="block text-white/60 mb-1">Assigned Lead / Mentor</label>
+                <select
+                  value={newEmp.mentorId || ""}
+                  onChange={(e) => {
+                    const mId = e.target.value;
+                    const selectedLead = leads.find((l: any) => l._id === mId || l.id === mId);
+                    setNewEmp((prev) => ({
+                      ...prev,
+                      mentorId: mId,
+                      mentor: selectedLead ? selectedLead.name : "Unassigned"
+                    }));
+                  }}
+                  className="w-full h-9 rounded-md border border-white/10 bg-white/5 px-2 text-white/80 focus:border-kcyan focus:outline-none cursor-pointer"
+                >
+                  <option value="" className="bg-carbon">Unassigned</option>
+                  {leads.map((lead: any) => (
+                    <option key={lead._id || lead.id} value={lead._id || lead.id} className="bg-carbon">
+                      {lead.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-white/5">
               <button
@@ -1828,23 +1862,25 @@ function HRMCore() {
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2 mr-6 scale-90">
-                <button
-                  onClick={() => {
-                    setIsEditingEmp(!isEditingEmp);
-                    setEditEmpForm(selectedEmp);
-                  }}
-                  className="flex h-8 items-center gap-1 rounded-md border border-white/10 bg-white/4 px-2.5 text-[11px] text-white/70 hover:text-white cursor-pointer"
-                >
-                  <Edit2 className="h-3 w-3" /> Edit
-                </button>
-                <button
-                  onClick={() => handleDeleteEmployee(selectedEmp.id)}
-                  className="flex h-8 items-center gap-1 rounded-md border border-red-500/30 bg-red-500/10 px-2.5 text-[11px] text-red-400 hover:bg-red-500/20 cursor-pointer"
-                >
-                  <Trash2 className="h-3 w-3" /> Terminate
-                </button>
-              </div>
+              {user?.role === "Admin" && (
+                <div className="flex gap-2 mr-6 scale-90">
+                  <button
+                    onClick={() => {
+                      setIsEditingEmp(!isEditingEmp);
+                      setEditEmpForm(selectedEmp);
+                    }}
+                    className="flex h-8 items-center gap-1 rounded-md border border-white/10 bg-white/4 px-2.5 text-[11px] text-white/70 hover:text-white cursor-pointer"
+                  >
+                    <Edit2 className="h-3 w-3" /> Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteEmployee(selectedEmp.id)}
+                    className="flex h-8 items-center gap-1 rounded-md border border-red-500/30 bg-red-500/10 px-2.5 text-[11px] text-red-400 hover:bg-red-500/20 cursor-pointer"
+                  >
+                    <Trash2 className="h-3 w-3" /> Terminate
+                  </button>
+                </div>
+              )}
             </DialogHeader>
 
             <div className="grid gap-6 md:grid-cols-5 mt-4 text-[13px]">
@@ -1942,6 +1978,29 @@ function HRMCore() {
                         <option value="contract" className="bg-carbon">
                           Contract
                         </option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-white/50">Assigned Lead / Mentor</label>
+                      <select
+                        value={editEmpForm.mentorId || ""}
+                        onChange={(e) => {
+                          const mId = e.target.value;
+                          const selectedLead = leads.find((l: any) => l._id === mId || l.id === mId);
+                          setEditEmpForm((prev) => ({
+                            ...prev,
+                            mentorId: mId,
+                            mentor: selectedLead ? selectedLead.name : "Unassigned"
+                          }));
+                        }}
+                        className="w-full h-8 rounded border border-white/10 bg-white/5 px-1.5 mt-1 focus:outline-none focus:border-kcyan text-white/80 cursor-pointer"
+                      >
+                        <option value="" className="bg-carbon">Unassigned</option>
+                        {leads.map((lead: any) => (
+                          <option key={lead._id || lead.id} value={lead._id || lead.id} className="bg-carbon">
+                            {lead.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div className="flex gap-2 pt-2">

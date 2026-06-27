@@ -71,16 +71,28 @@ export const applyLeave = async (req: AuthRequest, res: Response): Promise<void>
     // Broadcast event
     io.emit("leave:requested", leave);
 
-    // Notify Leads
-    const leads = await User.find({ role: "Lead" });
-    for (const lead of leads) {
+    // Notify the assigned Lead (mentor)
+    const intern = await Intern.findOne({ userId: req.user.id });
+    if (intern && intern.mentorId) {
       await createNotification(
-        lead._id,
+        intern.mentorId,
         "Leave Request Submitted",
         `${req.user.name} requested ${days} day(s) of ${type} leave.`,
         "Leave",
         "warning"
       );
+    } else {
+      // If no mentor assigned, notify Admins
+      const admins = await User.find({ role: "Admin" });
+      for (const admin of admins) {
+        await createNotification(
+          admin._id,
+          "Leave Request (Unassigned Intern)",
+          `${req.user.name} requested leave, but holds no assigned mentor.`,
+          "Leave",
+          "warning"
+        );
+      }
     }
 
     res.status(201).json(leave);
@@ -89,13 +101,18 @@ export const applyLeave = async (req: AuthRequest, res: Response): Promise<void>
   }
 };
 
-// PUT /api/leaves/:id/status - Lead approves or rejects leave request
+// PUT /api/leaves/:id/status - Lead or Admin approves or rejects leave request
 export const updateLeaveStatus = async (req: AuthRequest, res: Response): Promise<void> => {
   const { id } = req.params;
   const { status } = req.body; // Approved or Rejected
 
   if (!req.user) {
     res.status(401).json({ message: "Not authenticated." });
+    return;
+  }
+
+  if (req.user.role !== "Lead" && req.user.role !== "Admin") {
+    res.status(403).json({ message: "Access forbidden: only Leads and Admins can process leave requests." });
     return;
   }
 
@@ -114,6 +131,15 @@ export const updateLeaveStatus = async (req: AuthRequest, res: Response): Promis
     if (leave.status !== "Pending") {
       res.status(400).json({ message: `Leave request has already been processed: ${leave.status}` });
       return;
+    }
+
+    // Lead isolation check
+    if (req.user.role === "Lead") {
+      const intern = await Intern.findOne({ userId: leave.employeeId });
+      if (!intern || !intern.mentorId || intern.mentorId.toString() !== req.user.id) {
+        res.status(403).json({ message: "Access forbidden: you can only approve leaves for your assigned interns." });
+        return;
+      }
     }
 
     leave.status = status;
@@ -176,8 +202,17 @@ export const getAllLeaves = async (req: AuthRequest, res: Response): Promise<voi
 
   try {
     let query: any = {};
+
+    // Interns: see their own leaves
     if (req.user.role === "Intern") {
       query.employeeId = req.user.id;
+    }
+
+    // Leads: see leaves of their assigned interns
+    if (req.user.role === "Lead") {
+      const myInterns = await Intern.find({ mentorId: req.user.id });
+      const myInternUserIds = myInterns.map((i) => i.userId);
+      query.employeeId = { $in: myInternUserIds };
     }
 
     const leaves = await LeaveRequest.find(query).sort({ fromDate: -1 });

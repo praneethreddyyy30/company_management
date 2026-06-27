@@ -6,7 +6,7 @@ export interface AuthRequest extends Request {
     id: string;
     name: string;
     email: string;
-    role: "Lead" | "Intern";
+    role: "Admin" | "Lead" | "Intern";
     department: string;
   };
 }
@@ -31,7 +31,7 @@ export const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunct
       id: string;
       name: string;
       email: string;
-      role: "Lead" | "Intern";
+      role: "Admin" | "Lead" | "Intern";
       department: string;
     };
     req.user = decoded;
@@ -41,7 +41,7 @@ export const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunct
   }
 };
 
-export const requireRole = (roles: ("Lead" | "Intern")[]) => {
+export const requireRole = (roles: ("Admin" | "Lead" | "Intern")[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user || !roles.includes(req.user.role)) {
       res.status(403).json({ message: "Access forbidden: insufficient permissions." });

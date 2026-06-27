@@ -1,5 +1,6 @@
 import { Response } from "express";
 import bcrypt from "bcryptjs";
+import mongoose from "mongoose";
 import { User } from "../models/User";
 import { Intern } from "../models/Intern";
 import { Batch } from "../models/Batch";
@@ -30,13 +31,17 @@ export const getAllInterns = async (req: AuthRequest, res: Response): Promise<vo
     }
   }
 
-  // Lead can query and filter all interns
   const { batchId, track, status, q } = req.query;
   const filter: any = {};
 
   if (batchId) filter.batchId = batchId;
   if (track) filter.track = track;
   if (status) filter.status = status;
+
+  // Data Isolation: Lead can only see their assigned interns
+  if (req.user.role === "Lead") {
+    filter.mentorId = req.user.id;
+  }
 
   try {
     let interns = await Intern.find(filter)
@@ -80,9 +85,15 @@ export const getInternById = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    // Role-check: Intern role can only fetch their own profile
+    // Intern role: can only fetch their own profile
     if (req.user.role === "Intern" && intern.userId.toString() !== req.user.id) {
       res.status(403).json({ message: "Access forbidden: you can only view your own profile." });
+      return;
+    }
+
+    // Lead role: can only fetch their assigned interns
+    if (req.user.role === "Lead" && (!intern.mentorId || intern.mentorId.toString() !== req.user.id)) {
+      res.status(403).json({ message: "Access forbidden: this intern is assigned to a different Lead." });
       return;
     }
 
@@ -94,15 +105,28 @@ export const getInternById = async (req: AuthRequest, res: Response): Promise<vo
 
 // POST /api/interns
 export const createIntern = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { name, email, track, mentor, batchId, startDate, endDate, avatar, status, department } = req.body;
+  if (!req.user) {
+    res.status(401).json({ message: "Not authenticated." });
+    return;
+  }
+
+  // Only Admins can create employees
+  if (req.user.role !== "Admin") {
+    res.status(403).json({ message: "Access forbidden: only Admin can add new employees." });
+    return;
+  }
+
+  const { name, email, track, mentorId, batchId, startDate, endDate, avatar, status, department, employmentType } = req.body;
 
   if (!name || !email || !track || !batchId || !startDate || !endDate) {
     res.status(400).json({ message: "Name, email, track, batchId, startDate, and endDate are required." });
     return;
   }
 
+  const normalizedEmail = email.trim().toLowerCase();
+
   try {
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       res.status(400).json({ message: "User with this email already exists." });
       return;
@@ -112,6 +136,20 @@ export const createIntern = async (req: AuthRequest, res: Response): Promise<voi
     if (!batch) {
       res.status(404).json({ message: "Specified Batch not found." });
       return;
+    }
+
+    let mentorName = "Unassigned";
+    let validMentorId: any = undefined;
+
+    // Validate mentor is a user with Lead role
+    if (mentorId) {
+      const lead = await User.findById(mentorId);
+      if (!lead || lead.role !== "Lead") {
+        res.status(400).json({ message: "Invalid Lead assignment: mentorId must refer to an active Lead user." });
+        return;
+      }
+      mentorName = lead.name;
+      validMentorId = lead._id;
     }
 
     const initials = name
@@ -125,7 +163,7 @@ export const createIntern = async (req: AuthRequest, res: Response): Promise<voi
 
     const newUser = new User({
       name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       role: "Intern",
       department: department || "Technology",
@@ -137,8 +175,10 @@ export const createIntern = async (req: AuthRequest, res: Response): Promise<voi
       userId: newUser._id,
       batchId,
       track,
-      mentor: mentor || "Unassigned",
+      mentor: mentorName,
+      mentorId: validMentorId,
       status: status || "active",
+      employmentType: employmentType || "intern",
       avatar: avatar || initials || "II",
       startDate: new Date(startDate),
       endDate: new Date(endDate),
@@ -162,12 +202,23 @@ export const createIntern = async (req: AuthRequest, res: Response): Promise<voi
 
 // PUT /api/interns/:id
 export const updateIntern = async (req: AuthRequest, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: "Not authenticated." });
+    return;
+  }
+
+  // Only Admins can edit employee details
+  if (req.user.role !== "Admin") {
+    res.status(403).json({ message: "Access forbidden: only Admin can edit employee records." });
+    return;
+  }
+
   const { id } = req.params;
   const {
     name,
     email,
     track,
-    mentor,
+    mentorId,
     batchId,
     status,
     startDate,
@@ -178,7 +229,8 @@ export const updateIntern = async (req: AuthRequest, res: Response): Promise<voi
     currentTaskId,
     taskCompletionPercentage,
     attendancePercentage,
-    department
+    department,
+    employmentType
   } = req.body;
 
   try {
@@ -193,12 +245,13 @@ export const updateIntern = async (req: AuthRequest, res: Response): Promise<voi
     if (name) userUpdates.name = name;
     if (department) userUpdates.department = department;
     if (email) {
-      const emailExists = await User.findOne({ email, _id: { $ne: intern.userId } });
+      const normalizedEmail = email.trim().toLowerCase();
+      const emailExists = await User.findOne({ email: normalizedEmail, _id: { $ne: intern.userId } });
       if (emailExists) {
         res.status(400).json({ message: "Email is already in use by another account." });
         return;
       }
-      userUpdates.email = email;
+      userUpdates.email = normalizedEmail;
     }
     if (Object.keys(userUpdates).length > 0) {
       await User.findByIdAndUpdate(intern.userId, userUpdates);
@@ -206,7 +259,6 @@ export const updateIntern = async (req: AuthRequest, res: Response): Promise<voi
 
     // Update Intern profile details
     if (track) intern.track = track;
-    if (mentor !== undefined) intern.mentor = mentor;
     if (batchId) {
       const batchExists = await Batch.findById(batchId);
       if (!batchExists) {
@@ -224,6 +276,23 @@ export const updateIntern = async (req: AuthRequest, res: Response): Promise<voi
     if (currentTaskId !== undefined) intern.currentTaskId = currentTaskId || undefined;
     if (taskCompletionPercentage !== undefined) intern.taskCompletionPercentage = Number(taskCompletionPercentage);
     if (attendancePercentage !== undefined) intern.attendancePercentage = Number(attendancePercentage);
+    if (employmentType) intern.employmentType = employmentType;
+
+    // Mentor reassignment and validation
+    if (mentorId !== undefined) {
+      if (mentorId === null || mentorId === "") {
+        intern.mentorId = undefined;
+        intern.mentor = "Unassigned";
+      } else {
+        const lead = await User.findById(mentorId);
+        if (!lead || lead.role !== "Lead") {
+          res.status(400).json({ message: "Invalid Lead assignment: mentorId must refer to an active Lead user." });
+          return;
+        }
+        intern.mentorId = lead._id;
+        intern.mentor = lead.name;
+      }
+    }
 
     await intern.save();
 
@@ -237,9 +306,19 @@ export const updateIntern = async (req: AuthRequest, res: Response): Promise<voi
   }
 };
 
-
 // DELETE /api/interns/:id
 export const deleteIntern = async (req: AuthRequest, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: "Not authenticated." });
+    return;
+  }
+
+  // Only Admins can terminate employees
+  if (req.user.role !== "Admin") {
+    res.status(403).json({ message: "Access forbidden: only Admin can terminate employee accounts." });
+    return;
+  }
+
   const { id } = req.params;
 
   try {
