@@ -4,6 +4,7 @@ import { useAuthStore } from "@/stores/authStore";
 
 export const Route = createFileRoute("/employee")({
   beforeLoad: () => {
+    if (typeof window === "undefined") return;
     const user = useAuthStore.getState().user;
     const isAuthenticated = useAuthStore.getState().isAuthenticated;
     if (!isAuthenticated || !user) {

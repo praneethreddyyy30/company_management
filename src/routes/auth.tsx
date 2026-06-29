@@ -14,6 +14,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
   beforeLoad: () => {
+    if (typeof window === "undefined") return;
     const user = useAuthStore.getState().user;
     const isAuthenticated = useAuthStore.getState().isAuthenticated;
     if (isAuthenticated && user) {
