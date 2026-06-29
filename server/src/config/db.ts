@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { User } from "../models/User";
+import { autoSeedDB } from "./autoSeed";
 
 export const connectDB = async () => {
   try {
@@ -23,6 +24,9 @@ export const connectDB = async () => {
     } catch (migError) {
       console.warn(`[Migration] Failed to run lowercase email migration:`, migError);
     }
+
+    // Auto-seed default credentials if database is empty
+    await autoSeedDB();
   } catch (error) {
     console.error(`MongoDB Connection Error: ${(error as Error).message}`);
     process.exit(1);
