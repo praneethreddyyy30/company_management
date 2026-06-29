@@ -5,7 +5,11 @@ import { useAuthStore } from "@/stores/authStore";
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: () => {
     const user = useAuthStore.getState().user;
-    if (user && user.role === "Intern") {
+    const isAuthenticated = useAuthStore.getState().isAuthenticated;
+    if (!isAuthenticated || !user) {
+      throw redirect({ to: "/auth" });
+    }
+    if (user.role === "Intern") {
       throw redirect({ to: "/employee" });
     }
   },

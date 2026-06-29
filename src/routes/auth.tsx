@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -13,6 +13,14 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
+  beforeLoad: () => {
+    const user = useAuthStore.getState().user;
+    const isAuthenticated = useAuthStore.getState().isAuthenticated;
+    if (isAuthenticated && user) {
+      const isIntern = user.role === "Intern";
+      throw redirect({ to: isIntern ? "/employee" : "/dashboard" });
+    }
+  },
   component: AuthFlow,
 });
 
