@@ -53,6 +53,19 @@ const seedDB = async () => {
     // Hash default password
     const hashedPassword = await bcrypt.hash("password123", 10);
 
+    // 0. CREATE DEFAULT ADMIN USER
+    const adminUser = new User({
+      name: "Admin User",
+      email: "admin@klassygo.com",
+      password: hashedPassword,
+      role: "Admin",
+      department: "Executive",
+      avatar: "AU",
+      joinedAt: new Date("2024-01-01")
+    });
+    await adminUser.save();
+    console.log("[Seeder] Created default Admin account: admin@klassygo.com");
+
     // 1. CREATE LEAD USERS
     const leadUser = new User({
       name: "Vikram Iyer",
