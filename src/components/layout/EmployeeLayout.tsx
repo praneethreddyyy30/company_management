@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { type ReactNode, useEffect } from "react";
 import {
@@ -34,13 +34,27 @@ const navItems: { icon: LucideIcon; label: string; path: string }[] = [
 
 export function EmployeeLayout({ children }: { children: ReactNode }) {
   const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Automatically load live interns/tasks/batches data from Express backend
-    useHRMStore.getState().fetchData();
-    useAppStore.getState().fetchNotifications();
-  }, []);
+    if (!isAuthenticated || !user) {
+      navigate({ to: "/auth" });
+    }
+  }, [user, isAuthenticated, navigate]);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      // Automatically load live interns/tasks/batches data from Express backend
+      useHRMStore.getState().fetchData();
+      useAppStore.getState().fetchNotifications();
+    }
+  }, [isAuthenticated, user]);
+
+  if (!isAuthenticated || !user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-obsidian bg-grid text-white">

@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -13,23 +13,24 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
-  beforeLoad: () => {
-    if (typeof window === "undefined") return;
-    const user = useAuthStore.getState().user;
-    const isAuthenticated = useAuthStore.getState().isAuthenticated;
-    if (isAuthenticated && user) {
-      const isIntern = user.role === "Intern";
-      throw redirect({ to: isIntern ? "/employee" : "/dashboard" });
-    }
-  },
   component: AuthFlow,
 });
 
 const roles: Role[] = ["Management", "Lead", "Admin", "Employee", "Intern"];
 
 function AuthFlow() {
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuthStore();
   const step = useAuthStore((s) => s.authStep);
   const setStep = useAuthStore((s) => s.setStep);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const isIntern = user.role === "Intern";
+      navigate({ to: isIntern ? "/employee" : "/dashboard" });
+    }
+  }, [user, isAuthenticated, navigate]);
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-obsidian bg-grid text-white">
       <div className="pointer-events-none absolute inset-0">

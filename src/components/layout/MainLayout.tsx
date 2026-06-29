@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useRouterState } from "@tanstack/react-router";
+import { useRouterState, useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
@@ -8,16 +8,35 @@ import { AICopilot } from "../panels/AICopilot";
 import { CommandPalette } from "../panels/CommandPalette";
 import { useAppStore } from "@/stores/appStore";
 import { useHRMStore } from "@/stores/hrmStore";
+import { useAuthStore } from "@/stores/authStore";
 
 export function MainLayout({ children }: { children: ReactNode }) {
   const collapsed = useAppStore((s) => s.sidebarCollapsed);
   const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
-    // Automatically load live interns/tasks/batches data from Express backend
-    useHRMStore.getState().fetchData();
-    useAppStore.getState().fetchNotifications();
-  }, []);
+    if (!isAuthenticated || !user) {
+      navigate({ to: "/auth" });
+      return;
+    }
+    if (user.role === "Intern") {
+      navigate({ to: "/employee" });
+    }
+  }, [user, isAuthenticated, navigate]);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      // Automatically load live interns/tasks/batches data from Express backend
+      useHRMStore.getState().fetchData();
+      useAppStore.getState().fetchNotifications();
+    }
+  }, [isAuthenticated, user]);
+
+  if (!isAuthenticated || !user || user.role === "Intern") {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-obsidian bg-grid text-white">
