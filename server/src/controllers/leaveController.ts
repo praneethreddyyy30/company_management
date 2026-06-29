@@ -32,24 +32,14 @@ export const applyLeave = async (req: AuthRequest, res: Response): Promise<void>
     return;
   }
 
-  try {
-    const from = new Date(fromDate);
-    const to = new Date(toDate);
-    const today = getNormalizedToday();
+    try {
+      const from = new Date(fromDate);
+      const to = new Date(toDate);
 
-    // Leave must be requested at least one day before the start date
-    const minStartDate = new Date(today);
-    minStartDate.setDate(minStartDate.getDate() + 1); // today + 1 day
-
-    if (from < minStartDate) {
-      res.status(400).json({ message: "Leave must be requested at least one day before the start date." });
-      return;
-    }
-
-    if (to < from) {
-      res.status(400).json({ message: "End date (toDate) cannot be before start date (fromDate)." });
-      return;
-    }
+      if (to < from) {
+        res.status(400).json({ message: "End date (toDate) cannot be before start date (fromDate)." });
+        return;
+      }
 
     // Calculate days requested
     const diffMs = to.getTime() - from.getTime();

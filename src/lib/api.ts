@@ -64,7 +64,7 @@ export function mapInternToEmployee(intern: any): any {
     id: intern._id,
     name: user.name || "Unknown Intern",
     email: user.email || "",
-    role: `${intern.track || "General"} Intern`,
+    role: "Intern",
     department: user.department || "Technology",
     status: intern.status || "active",
     employmentType: intern.employmentType || "intern",
