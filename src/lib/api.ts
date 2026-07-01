@@ -64,7 +64,7 @@ export function mapInternToEmployee(intern: any): any {
     id: intern._id,
     name: user.name || "Unknown Intern",
     email: user.email || "",
-    role: "Intern",
+    role: user.role || "Intern",
     department: user.department || "Technology",
     status: intern.status || "active",
     employmentType: intern.employmentType || "intern",
@@ -78,7 +78,7 @@ export function mapInternToEmployee(intern: any): any {
     dbId: intern._id,
     userId: user._id,
     batchId: intern.batchId?._id || intern.batchId,
-    track: intern.track,
+    track: intern.track || (user.role === "Admin" ? "Executive" : user.role === "Lead" ? "Management" : "General"),
     mentor: intern.mentor,
     mentorId: intern.mentorId,
     startDate: intern.startDate,
@@ -86,6 +86,7 @@ export function mapInternToEmployee(intern: any): any {
     currentTaskId: intern.currentTaskId,
     taskCompletionPercentage: intern.taskCompletionPercentage ?? 0,
     attendancePercentage: intern.attendancePercentage ?? 100,
+    systemRole: user.role || "Intern",
   };
 }
 

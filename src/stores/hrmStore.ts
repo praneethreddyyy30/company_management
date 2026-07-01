@@ -244,6 +244,7 @@ export const useHRMStore = create<HRMState>((set, get) => ({
         avatar: empRecord.avatar,
         status: empRecord.status || "active",
         employmentType: empRecord.employmentType || "intern",
+        systemRole: (empRecord as any).systemRole || "Intern",
       };
 
       const newEmp = await internAPI.create(apiPayload);
@@ -272,6 +273,9 @@ export const useHRMStore = create<HRMState>((set, get) => ({
       if (updatedFields.tasksCompleted !== undefined) apiPayload.tasksCompleted = updatedFields.tasksCompleted;
       if (updatedFields.mentorId !== undefined) {
         apiPayload.mentorId = updatedFields.mentorId; // can be null/empty
+      }
+      if ((updatedFields as any).systemRole !== undefined) {
+        apiPayload.systemRole = (updatedFields as any).systemRole;
       }
       
       // If status leaves or off-active

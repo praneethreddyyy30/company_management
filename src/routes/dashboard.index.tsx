@@ -31,6 +31,7 @@ import { useHRMStore } from "@/stores/hrmStore";
 import { activityFeed, heatmapData, leavePieData, employees } from "@/data/mockData";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { AttendanceCard } from "./employee.index";
 
 export const Route = createFileRoute("/dashboard/")({
   component: Dashboard,
@@ -97,6 +98,12 @@ function Dashboard() {
           </div>
         </div>
       </GlassCard>
+
+      {user && (user.role === "Lead" || user.role === "Admin") && (
+        <div className="grid gap-6 md:grid-cols-2">
+          <AttendanceCard userId={user.id || (user as any)._id} />
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

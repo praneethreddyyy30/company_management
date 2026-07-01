@@ -32,18 +32,83 @@ export const getAllInterns = async (req: AuthRequest, res: Response): Promise<vo
   }
 
   const { batchId, track, status, q } = req.query;
-  const filter: any = {};
-
-  if (batchId) filter.batchId = batchId;
-  if (track) filter.track = track;
-  if (status) filter.status = status;
-
-  // Data Isolation: Lead can only see their assigned interns
-  if (req.user.role === "Lead") {
-    filter.mentorId = req.user.id;
-  }
 
   try {
+    if (req.user.role === "Admin") {
+      // Admins see everyone: Interns, Leads, and Admins
+      const users = await User.find({}, "-password");
+      const internProfiles = await Intern.find({}).populate("batchId");
+
+      const results: any[] = [];
+      for (const user of users) {
+        if (user.role === "Intern") {
+          const profile = internProfiles.find(p => p.userId?.toString() === user._id.toString());
+          if (profile) {
+            results.push(profile);
+          } else {
+            results.push({
+              _id: user._id,
+              userId: user,
+              track: "General",
+              mentor: "Unassigned",
+              status: "active",
+              employmentType: "intern",
+              startDate: user.createdAt || new Date(),
+              endDate: user.createdAt || new Date(),
+              performance: 80,
+            });
+          }
+        } else {
+          results.push({
+            _id: user._id, // use User _id as the primary identifier
+            userId: user,
+            track: user.role === "Admin" ? "Executive" : "Management",
+            mentor: "N/A",
+            status: "active",
+            employmentType: "full-time",
+            startDate: user.createdAt || new Date(),
+            endDate: user.createdAt || new Date(),
+            performance: 95,
+          });
+        }
+      }
+
+      // Apply search query filter if present
+      let filteredResults = results;
+      if (q) {
+        const queryStr = (q as string).toLowerCase();
+        filteredResults = results.filter(item => 
+          item.userId && 
+          (item.userId.name.toLowerCase().includes(queryStr) || 
+           item.userId.email.toLowerCase().includes(queryStr))
+        );
+      }
+
+      // Apply other filters if present
+      if (track) {
+        filteredResults = filteredResults.filter(item => item.track === track);
+      }
+      if (status) {
+        filteredResults = filteredResults.filter(item => item.status === status);
+      }
+      if (batchId) {
+        filteredResults = filteredResults.filter(item => item.batchId && (item.batchId._id || item.batchId) === batchId);
+      }
+
+      res.status(200).json(filteredResults);
+      return;
+    }
+
+    const filter: any = {};
+    if (batchId) filter.batchId = batchId;
+    if (track) filter.track = track;
+    if (status) filter.status = status;
+
+    // Data Isolation: Lead can only see their assigned interns
+    if (req.user.role === "Lead") {
+      filter.mentorId = req.user.id;
+    }
+
     let interns = await Intern.find(filter)
       .populate("userId", "-password")
       .populate("batchId");
@@ -116,10 +181,17 @@ export const createIntern = async (req: AuthRequest, res: Response): Promise<voi
     return;
   }
 
-  const { name, email, track, mentorId, batchId, startDate, endDate, avatar, status, department, employmentType } = req.body;
+  const { name, email, track, mentorId, batchId, startDate, endDate, avatar, status, department, employmentType, systemRole } = req.body;
 
-  if (!name || !email || !track || !batchId || !startDate || !endDate) {
-    res.status(400).json({ message: "Name, email, track, batchId, startDate, and endDate are required." });
+  const isInternRole = !systemRole || systemRole === "Intern";
+
+  if (!name || !email) {
+    res.status(400).json({ message: "Name and email are required." });
+    return;
+  }
+
+  if (isInternRole && (!track || !batchId || !startDate || !endDate)) {
+    res.status(400).json({ message: "Track, batchId, startDate, and endDate are required for Intern creation." });
     return;
   }
 
@@ -132,17 +204,11 @@ export const createIntern = async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
-    const batch = await Batch.findById(batchId);
-    if (!batch) {
-      res.status(404).json({ message: "Specified Batch not found." });
-      return;
-    }
-
     let mentorName = "Unassigned";
     let validMentorId: any = undefined;
 
     // Validate mentor is a user with Lead role
-    if (mentorId) {
+    if (isInternRole && mentorId) {
       const lead = await User.findById(mentorId);
       if (!lead || lead.role !== "Lead") {
         res.status(400).json({ message: "Invalid Lead assignment: mentorId must refer to an active Lead user." });
@@ -165,34 +231,51 @@ export const createIntern = async (req: AuthRequest, res: Response): Promise<voi
       name,
       email: normalizedEmail,
       password: hashedPassword,
-      role: "Intern",
-      department: department || "Technology",
+      role: systemRole || "Intern",
+      department: department || (systemRole === "Admin" ? "Executive" : systemRole === "Lead" ? "Management" : "Technology"),
       avatar: avatar || initials || "II",
     });
     await newUser.save();
 
-    const newIntern = new Intern({
-      userId: newUser._id,
-      batchId,
-      track,
-      mentor: mentorName,
-      mentorId: validMentorId,
-      status: status || "active",
-      employmentType: employmentType || "intern",
-      avatar: avatar || initials || "II",
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
-      taskCompletionPercentage: 0,
-      attendancePercentage: 100,
-      performance: 80,
-      lmsProgress: 0,
-      tasksCompleted: 0,
-    });
-    await newIntern.save();
+    let result: any = null;
 
-    const result = await Intern.findById(newIntern._id)
-      .populate("userId", "-password")
-      .populate("batchId");
+    if (isInternRole) {
+      const newIntern = new Intern({
+        userId: newUser._id,
+        batchId,
+        track,
+        mentor: mentorName,
+        mentorId: validMentorId,
+        status: status || "active",
+        employmentType: employmentType || "intern",
+        avatar: avatar || initials || "II",
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        taskCompletionPercentage: 0,
+        attendancePercentage: 100,
+        performance: 80,
+        lmsProgress: 0,
+        tasksCompleted: 0,
+      });
+      await newIntern.save();
+
+      result = await Intern.findById(newIntern._id)
+        .populate("userId", "-password")
+        .populate("batchId");
+    } else {
+      result = {
+        _id: newUser._id,
+        userId: newUser,
+        track: systemRole === "Admin" ? "Executive" : "Management",
+        mentor: "N/A",
+        status: status || "active",
+        employmentType: employmentType || "full-time",
+        avatar: avatar || initials || "II",
+        startDate: new Date(),
+        endDate: new Date(),
+        performance: 95,
+      };
+    }
 
     res.status(201).json(result);
   } catch (error) {
@@ -230,13 +313,49 @@ export const updateIntern = async (req: AuthRequest, res: Response): Promise<voi
     taskCompletionPercentage,
     attendancePercentage,
     department,
-    employmentType
+    employmentType,
+    systemRole
   } = req.body;
 
   try {
-    const intern = await Intern.findById(id);
+    let intern = await Intern.findById(id);
     if (!intern) {
-      res.status(404).json({ message: "Intern not found." });
+      // Check if it's a User ID (Lead or Admin)
+      const user = await User.findById(id);
+      if (!user) {
+        res.status(404).json({ message: "Employee not found." });
+        return;
+      }
+
+      const userUpdates: any = {};
+      if (name) userUpdates.name = name;
+      if (department) userUpdates.department = department;
+      if (email) {
+        const normalizedEmail = email.trim().toLowerCase();
+        const emailExists = await User.findOne({ email: normalizedEmail, _id: { $ne: user._id } });
+        if (emailExists) {
+          res.status(400).json({ message: "Email is already in use by another account." });
+          return;
+        }
+        userUpdates.email = normalizedEmail;
+      }
+      if (systemRole) {
+        userUpdates.role = systemRole;
+      }
+
+      const updatedUser = await User.findByIdAndUpdate(id, userUpdates, { new: true });
+
+      res.status(200).json({
+        _id: updatedUser._id,
+        userId: updatedUser,
+        track: updatedUser.role === "Admin" ? "Executive" : "Management",
+        mentor: "N/A",
+        status: status || "active",
+        employmentType: employmentType || "full-time",
+        startDate: updatedUser.createdAt || new Date(),
+        endDate: updatedUser.createdAt || new Date(),
+        performance: 95,
+      });
       return;
     }
 
@@ -252,6 +371,9 @@ export const updateIntern = async (req: AuthRequest, res: Response): Promise<voi
         return;
       }
       userUpdates.email = normalizedEmail;
+    }
+    if (systemRole) {
+      userUpdates.role = systemRole;
     }
     if (Object.keys(userUpdates).length > 0) {
       await User.findByIdAndUpdate(intern.userId, userUpdates);
@@ -324,7 +446,14 @@ export const deleteIntern = async (req: AuthRequest, res: Response): Promise<voi
   try {
     const intern = await Intern.findById(id);
     if (!intern) {
-      res.status(404).json({ message: "Intern not found." });
+      // Check if it's a User ID (Lead or Admin)
+      const user = await User.findById(id);
+      if (!user) {
+        res.status(404).json({ message: "Employee not found." });
+        return;
+      }
+      await User.findByIdAndDelete(id);
+      res.status(200).json({ message: "Employee deleted successfully." });
       return;
     }
 
@@ -332,7 +461,7 @@ export const deleteIntern = async (req: AuthRequest, res: Response): Promise<voi
     await User.findByIdAndDelete(intern.userId);
     await Intern.findByIdAndDelete(id);
 
-    res.status(200).json({ message: "Intern and associated user account deleted successfully." });
+    res.status(200).json({ message: "Employee and associated account deleted successfully." });
   } catch (error) {
     res.status(500).json({ message: `Server error: ${(error as Error).message}` });
   }

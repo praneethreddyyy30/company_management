@@ -85,7 +85,7 @@ export function Sidebar() {
       title: "Intelligence",
       items: [
         { icon: Sparkles, label: "AI Co-Pilot", live: true, onClick: () => setAIPanel(true) },
-        { icon: TrendingUp, label: "Reports", path: "/dashboard/reports" },
+        ...(user?.role === "Admin" ? [{ icon: TrendingUp, label: "Reports", path: "/dashboard/reports" }] : []),
         { icon: Target, label: "Talent IQ", path: "/dashboard/talent" },
       ],
     },

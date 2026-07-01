@@ -18,6 +18,8 @@ import { TrendingUp, BarChart3, PieChart, Download } from "lucide-react";
 import { analyticsAPI, batchAPI } from "@/lib/api";
 import { toast } from "sonner";
 
+import { useAuthStore } from "@/stores/authStore";
+
 export const Route = createFileRoute("/dashboard/reports")({ component: Reports });
 
 const perf = ["Tech", "HR", "Ops", "Design", "Marketing", "Finance", "Product", "Sales"].map(
@@ -29,6 +31,22 @@ const growth = Array.from({ length: 12 }).map((_, i) => ({
 }));
 
 function Reports() {
+  const user = useAuthStore((s) => s.user);
+
+  if (user?.role !== "Admin") {
+    return (
+      <div className="flex h-[400px] flex-col items-center justify-center gap-3 text-center">
+        <div className="rounded-full bg-rose-500/10 p-4 text-rose-500 animate-pulse">
+          <TrendingUp className="h-8 w-8" />
+        </div>
+        <h2 className="font-display text-[18px] font-bold text-white">Access Denied</h2>
+        <p className="max-w-md text-[13.5px] text-white/50 leading-relaxed">
+          This section contains sensitive company reports and leaderboard metrics restricted to System Administrators only.
+        </p>
+      </div>
+    );
+  }
+
   const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string>("");
   const [selectedTrack, setSelectedTrack] = useState<string>("");

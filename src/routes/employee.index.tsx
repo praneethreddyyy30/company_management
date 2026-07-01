@@ -226,7 +226,7 @@ function OnboardingChecklist({
   );
 }
 
-function AttendanceCard({ userId, onCheckInSuccess }: { userId: string; onCheckInSuccess?: () => void }) {
+export function AttendanceCard({ userId, onCheckInSuccess }: { userId: string; onCheckInSuccess?: () => void }) {
   const [todayRecord, setTodayRecord] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [elapsed, setElapsed] = useState("00:00:00");

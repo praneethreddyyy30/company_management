@@ -162,6 +162,7 @@ function HRMCore() {
     lmsProgress: 50,
     mentorId: "",
     mentor: "Unassigned",
+    systemRole: "Intern",
   });
 
   // Add Task Form State - using static dates to prevent timezone hydration mismatch
@@ -303,7 +304,7 @@ function HRMCore() {
       .join("")
       .toUpperCase()
       .slice(0, 2);
-    const newEmployeeRecord: Employee = {
+    const newEmployeeRecord: any = {
       id: `e${Date.now()}`,
       name: newEmp.name,
       email: newEmp.email,
@@ -318,6 +319,7 @@ function HRMCore() {
       tasksCompleted: 0,
       mentorId: newEmp.mentorId || undefined,
       mentor: newEmp.mentor || "Unassigned",
+      systemRole: newEmp.systemRole || "Intern",
     };
     addEmployee(newEmployeeRecord);
     toast.success("Employee successfully added!");
@@ -333,6 +335,7 @@ function HRMCore() {
       lmsProgress: 50,
       mentorId: "",
       mentor: "Unassigned",
+      systemRole: "Intern",
     });
   };
 
@@ -1305,6 +1308,18 @@ function HRMCore() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <label className="block text-white/60 mb-1">System Role *</label>
+                <select
+                  value={newEmp.systemRole}
+                  onChange={(e) => setNewEmp((prev) => ({ ...prev, systemRole: e.target.value }))}
+                  className="w-full h-9 rounded-md border border-white/10 bg-white/5 px-2 text-white/80 focus:border-kcyan focus:outline-none cursor-pointer"
+                >
+                  <option value="Intern" className="bg-carbon">Intern</option>
+                  <option value="Lead" className="bg-carbon">Lead</option>
+                  <option value="Admin" className="bg-carbon">Admin</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-white/60 mb-1">Role/Job Title *</label>
                 <input
                   required
@@ -1315,6 +1330,8 @@ function HRMCore() {
                   className="w-full h-9 rounded-md border border-white/10 bg-white/5 px-3 focus:border-kcyan focus:outline-none"
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-white/60 mb-1">Department</label>
                 <select
@@ -1414,29 +1431,35 @@ function HRMCore() {
                   className="w-full h-9 rounded-md border border-white/10 bg-white/5 px-3 focus:border-kcyan focus:outline-none"
                 />
               </div>
-              <div>
-                <label className="block text-white/60 mb-1">Assigned Lead / Mentor</label>
-                <select
-                  value={newEmp.mentorId || ""}
-                  onChange={(e) => {
-                    const mId = e.target.value;
-                    const selectedLead = leads.find((l: any) => l._id === mId || l.id === mId);
-                    setNewEmp((prev) => ({
-                      ...prev,
-                      mentorId: mId,
-                      mentor: selectedLead ? selectedLead.name : "Unassigned"
-                    }));
-                  }}
-                  className="w-full h-9 rounded-md border border-white/10 bg-white/5 px-2 text-white/80 focus:border-kcyan focus:outline-none cursor-pointer"
-                >
-                  <option value="" className="bg-carbon">Unassigned</option>
-                  {leads.map((lead: any) => (
-                    <option key={lead._id || lead.id} value={lead._id || lead.id} className="bg-carbon">
-                      {lead.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {newEmp.systemRole === "Intern" ? (
+                <div>
+                  <label className="block text-white/60 mb-1">Assigned Lead / Mentor</label>
+                  <select
+                    value={newEmp.mentorId || ""}
+                    onChange={(e) => {
+                      const mId = e.target.value;
+                      const selectedLead = leads.find((l: any) => l._id === mId || l.id === mId);
+                      setNewEmp((prev) => ({
+                        ...prev,
+                        mentorId: mId,
+                        mentor: selectedLead ? selectedLead.name : "Unassigned"
+                      }));
+                    }}
+                    className="w-full h-9 rounded-md border border-white/10 bg-white/5 px-2 text-white/80 focus:border-kcyan focus:outline-none cursor-pointer"
+                  >
+                    <option value="" className="bg-carbon">Unassigned</option>
+                    {leads.map((lead: any) => (
+                      <option key={lead._id || lead.id} value={lead._id || lead.id} className="bg-carbon">
+                        {lead.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="flex flex-col justify-end">
+                  <span className="text-[11px] text-white/45 italic mb-2">Mentor assignment is only available for Interns</span>
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-white/5">
               <button
@@ -1914,6 +1937,20 @@ function HRMCore() {
                       />
                     </div>
                     <div>
+                      <label className="text-[11px] text-white/50">System Role</label>
+                      <select
+                        value={(editEmpForm as any).systemRole || "Intern"}
+                        onChange={(e) =>
+                          setEditEmpForm((prev) => ({ ...prev, systemRole: e.target.value }))
+                        }
+                        className="w-full h-8 rounded border border-white/10 bg-white/5 px-1.5 mt-1 focus:outline-none focus:border-kcyan text-white/80 cursor-pointer"
+                      >
+                        <option value="Intern" className="bg-carbon">Intern</option>
+                        <option value="Lead" className="bg-carbon">Lead</option>
+                        <option value="Admin" className="bg-carbon">Admin</option>
+                      </select>
+                    </div>
+                    <div>
                       <label className="text-[11px] text-white/50">Department</label>
                       <select
                         value={editEmpForm.department}
@@ -1980,29 +2017,31 @@ function HRMCore() {
                         </option>
                       </select>
                     </div>
-                    <div>
-                      <label className="text-[11px] text-white/50">Assigned Lead / Mentor</label>
-                      <select
-                        value={editEmpForm.mentorId || ""}
-                        onChange={(e) => {
-                          const mId = e.target.value;
-                          const selectedLead = leads.find((l: any) => l._id === mId || l.id === mId);
-                          setEditEmpForm((prev) => ({
-                            ...prev,
-                            mentorId: mId,
-                            mentor: selectedLead ? selectedLead.name : "Unassigned"
-                          }));
-                        }}
-                        className="w-full h-8 rounded border border-white/10 bg-white/5 px-1.5 mt-1 focus:outline-none focus:border-kcyan text-white/80 cursor-pointer"
-                      >
-                        <option value="" className="bg-carbon">Unassigned</option>
-                        {leads.map((lead: any) => (
-                          <option key={lead._id || lead.id} value={lead._id || lead.id} className="bg-carbon">
-                            {lead.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    {((editEmpForm as any).systemRole || "Intern") === "Intern" && (
+                      <div>
+                        <label className="text-[11px] text-white/50">Assigned Lead / Mentor</label>
+                        <select
+                          value={editEmpForm.mentorId || ""}
+                          onChange={(e) => {
+                            const mId = e.target.value;
+                            const selectedLead = leads.find((l: any) => l._id === mId || l.id === mId);
+                            setEditEmpForm((prev) => ({
+                              ...prev,
+                              mentorId: mId,
+                              mentor: selectedLead ? selectedLead.name : "Unassigned"
+                            }));
+                          }}
+                          className="w-full h-8 rounded border border-white/10 bg-white/5 px-1.5 mt-1 focus:outline-none focus:border-kcyan text-white/80 cursor-pointer"
+                        >
+                          <option value="" className="bg-carbon">Unassigned</option>
+                          {leads.map((lead: any) => (
+                            <option key={lead._id || lead.id} value={lead._id || lead.id} className="bg-carbon">
+                              {lead.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <div className="flex gap-2 pt-2">
                       <button
                         type="submit"

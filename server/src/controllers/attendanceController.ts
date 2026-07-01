@@ -33,8 +33,8 @@ export const checkIn = async (req: AuthRequest, res: Response): Promise<void> =>
     return;
   }
 
-  if (req.user.role !== "Intern") {
-    res.status(403).json({ message: "Access forbidden: only interns mark attendance." });
+  if (req.user.role !== "Intern" && req.user.role !== "Lead") {
+    res.status(403).json({ message: "Access forbidden: only interns and leads mark attendance." });
     return;
   }
 
@@ -87,8 +87,8 @@ export const checkOut = async (req: AuthRequest, res: Response): Promise<void> =
     return;
   }
 
-  if (req.user.role !== "Intern") {
-    res.status(403).json({ message: "Access forbidden: only interns mark attendance." });
+  if (req.user.role !== "Intern" && req.user.role !== "Lead") {
+    res.status(403).json({ message: "Access forbidden: only interns and leads mark attendance." });
     return;
   }
 
@@ -141,10 +141,25 @@ export const getAttendanceHistory = async (req: AuthRequest, res: Response): Pro
     }
   }
 
-  // Leads can see any intern's logs, or all logs
+  // Leads can only see their assigned interns' logs
   try {
     const query: any = {};
-    if (internId) query.internId = internId;
+    if (req.user.role === "Lead") {
+      const myInterns = await Intern.find({ mentorId: req.user.id });
+      const myInternUserIds = myInterns.map((i) => i.userId);
+      
+      if (internId) {
+        if (!myInternUserIds.map((id) => id.toString()).includes(internId.toString())) {
+          res.status(403).json({ message: "Access forbidden: you can only view attendance for your assigned interns." });
+          return;
+        }
+        query.internId = internId;
+      } else {
+        query.internId = { $in: myInternUserIds };
+      }
+    } else {
+      if (internId) query.internId = internId;
+    }
     
     const logs = await Attendance.find(query)
       .populate("internId", "name email avatar")
