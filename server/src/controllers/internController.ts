@@ -344,6 +344,10 @@ export const updateIntern = async (req: AuthRequest, res: Response): Promise<voi
       }
 
       const updatedUser = await User.findByIdAndUpdate(id, userUpdates, { new: true });
+      if (!updatedUser) {
+        res.status(404).json({ message: "Employee not found during update." });
+        return;
+      }
 
       res.status(200).json({
         _id: updatedUser._id,
