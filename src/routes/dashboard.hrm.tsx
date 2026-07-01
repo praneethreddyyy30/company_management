@@ -1311,7 +1311,14 @@ function HRMCore() {
                 <label className="block text-white/60 mb-1">System Role *</label>
                 <select
                   value={newEmp.systemRole}
-                  onChange={(e) => setNewEmp((prev) => ({ ...prev, systemRole: e.target.value }))}
+                  onChange={(e) => {
+                    const role = e.target.value;
+                    setNewEmp((prev) => ({
+                      ...prev,
+                      systemRole: role,
+                      employmentType: role === "Intern" ? "intern" : "full-time"
+                    }));
+                  }}
                   className="w-full h-9 rounded-md border border-white/10 bg-white/5 px-2 text-white/80 focus:border-kcyan focus:outline-none cursor-pointer"
                 >
                   <option value="Intern" className="bg-carbon">Intern</option>
@@ -1392,29 +1399,36 @@ function HRMCore() {
               </div>
               <div>
                 <label className="block text-white/60 mb-1">Employment Type</label>
-                <select
-                  value={newEmp.employmentType}
-                  onChange={(e) =>
-                    setNewEmp((prev) => ({
-                      ...prev,
-                      employmentType: e.target.value as EmploymentType,
-                    }))
-                  }
-                  className="w-full h-9 rounded-md border border-white/10 bg-white/5 px-2 text-white/80 focus:border-kcyan focus:outline-none cursor-pointer"
-                >
-                  <option value="full-time" className="bg-carbon">
-                    Full-Time
-                  </option>
-                  <option value="intern" className="bg-carbon">
-                    Intern
-                  </option>
-                  <option value="part-time" className="bg-carbon">
-                    Part-Time
-                  </option>
-                  <option value="contract" className="bg-carbon">
-                    Contract
-                  </option>
-                </select>
+                {newEmp.systemRole === "Intern" ? (
+                  <select
+                    disabled
+                    value="intern"
+                    className="w-full h-9 rounded-md border border-white/10 bg-white/5 px-2 text-white/40 focus:outline-none cursor-not-allowed"
+                  >
+                    <option value="intern" className="bg-carbon">Intern</option>
+                  </select>
+                ) : (
+                  <select
+                    value={newEmp.employmentType === "intern" ? "full-time" : newEmp.employmentType}
+                    onChange={(e) =>
+                      setNewEmp((prev) => ({
+                        ...prev,
+                        employmentType: e.target.value as EmploymentType,
+                      }))
+                    }
+                    className="w-full h-9 rounded-md border border-white/10 bg-white/5 px-2 text-white/80 focus:border-kcyan focus:outline-none cursor-pointer"
+                  >
+                    <option value="full-time" className="bg-carbon">
+                      Full-Time
+                    </option>
+                    <option value="part-time" className="bg-carbon">
+                      Part-Time
+                    </option>
+                    <option value="contract" className="bg-carbon">
+                      Contract
+                    </option>
+                  </select>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -1940,9 +1954,14 @@ function HRMCore() {
                       <label className="text-[11px] text-white/50">System Role</label>
                       <select
                         value={(editEmpForm as any).systemRole || "Intern"}
-                        onChange={(e) =>
-                          setEditEmpForm((prev) => ({ ...prev, systemRole: e.target.value }))
-                        }
+                        onChange={(e) => {
+                          const role = e.target.value;
+                          setEditEmpForm((prev) => ({
+                            ...prev,
+                            systemRole: role,
+                            employmentType: role === "Intern" ? "intern" : "full-time"
+                          }));
+                        }}
                         className="w-full h-8 rounded border border-white/10 bg-white/5 px-1.5 mt-1 focus:outline-none focus:border-kcyan text-white/80 cursor-pointer"
                       >
                         <option value="Intern" className="bg-carbon">Intern</option>
@@ -1993,29 +2012,36 @@ function HRMCore() {
                     </div>
                     <div>
                       <label className="text-[11px] text-white/50">Employment Type</label>
-                      <select
-                        value={editEmpForm.employmentType}
-                        onChange={(e) =>
-                          setEditEmpForm((prev) => ({
-                            ...prev,
-                            employmentType: e.target.value as EmploymentType,
-                          }))
-                        }
-                        className="w-full h-8 rounded border border-white/10 bg-white/5 px-1.5 mt-1 focus:outline-none focus:border-kcyan text-white/80 cursor-pointer"
-                      >
-                        <option value="full-time" className="bg-carbon">
-                          Full-Time
-                        </option>
-                        <option value="intern" className="bg-carbon">
-                          Intern
-                        </option>
-                        <option value="part-time" className="bg-carbon">
-                          Part-Time
-                        </option>
-                        <option value="contract" className="bg-carbon">
-                          Contract
-                        </option>
-                      </select>
+                      {((editEmpForm as any).systemRole || "Intern") === "Intern" ? (
+                        <select
+                          disabled
+                          value="intern"
+                          className="w-full h-8 rounded border border-white/10 bg-white/5 px-1.5 mt-1 focus:outline-none text-white/40 cursor-not-allowed"
+                        >
+                          <option value="intern" className="bg-carbon">Intern</option>
+                        </select>
+                      ) : (
+                        <select
+                          value={editEmpForm.employmentType === "intern" ? "full-time" : editEmpForm.employmentType}
+                          onChange={(e) =>
+                            setEditEmpForm((prev) => ({
+                              ...prev,
+                              employmentType: e.target.value as EmploymentType,
+                            }))
+                          }
+                          className="w-full h-8 rounded border border-white/10 bg-white/5 px-1.5 mt-1 focus:outline-none focus:border-kcyan text-white/80 cursor-pointer"
+                        >
+                          <option value="full-time" className="bg-carbon">
+                            Full-Time
+                          </option>
+                          <option value="part-time" className="bg-carbon">
+                            Part-Time
+                          </option>
+                          <option value="contract" className="bg-carbon">
+                            Contract
+                          </option>
+                        </select>
+                      )}
                     </div>
                     {((editEmpForm as any).systemRole || "Intern") === "Intern" && (
                       <div>
