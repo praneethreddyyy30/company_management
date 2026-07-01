@@ -5,6 +5,8 @@ import { Avatar } from "@/components/common/Avatar";
 import { useHRMStore } from "@/stores/hrmStore";
 import { UserPlus, CheckCircle2, FileText, Sparkles } from "lucide-react";
 
+import { useAuthStore } from "@/stores/authStore";
+
 export const Route = createFileRoute("/dashboard/onboarding")({ component: Onboarding });
 
 const checklist = [
@@ -18,6 +20,21 @@ const checklist = [
 ];
 
 function Onboarding() {
+  const user = useAuthStore((s) => s.user);
+
+  if (user?.role !== "Admin") {
+    return (
+      <div className="flex h-[400px] flex-col items-center justify-center gap-3 text-center">
+        <div className="rounded-full bg-rose-500/10 p-4 text-rose-500 animate-pulse">
+          <UserPlus className="h-8 w-8" />
+        </div>
+        <h2 className="font-display text-[18px] font-bold text-white">Access Denied</h2>
+        <p className="max-w-md text-[13.5px] text-white/50 leading-relaxed">
+          This section contains onboarding checklist pipelines restricted to System Administrators only.
+        </p>
+      </div>
+    );
+  }
   const interns = useHRMStore((s) => s.employees).filter((e) => e.employmentType === "intern");
   return (
     <div className="flex flex-col gap-6">

@@ -53,21 +53,27 @@ export function Sidebar() {
   const user = useAuthStore((s) => s.user);
   const pathname = useRouterState({ select: (r) => r.location.pathname });
 
+  const isAdmin = user?.role === "Admin";
+
   const sections: NavSection[] = [
     {
       title: "Core Platform",
       items: [
         { icon: Grid2X2, label: "Dashboard", path: "/dashboard" },
         { icon: Building2, label: "HRM Core", path: "/dashboard/hrm" },
-        { icon: BarChart3, label: "ERP Suite", path: "/dashboard/erp" },
-        { icon: Users, label: "CRM Pipeline", path: "/dashboard/crm" },
+        ...(isAdmin ? [
+          { icon: BarChart3, label: "ERP Suite", path: "/dashboard/erp" },
+          { icon: Users, label: "CRM Pipeline", path: "/dashboard/crm" },
+        ] : []),
       ],
     },
     {
       title: "HR Modules",
       items: [
-        { icon: UserPlus, label: "Onboarding", path: "/dashboard/onboarding", badge: 3 },
-        { icon: BookOpen, label: "Learning", path: "/dashboard/lms" },
+        ...(isAdmin ? [
+          { icon: UserPlus, label: "Onboarding", path: "/dashboard/onboarding", badge: 3 },
+          { icon: BookOpen, label: "Learning", path: "/dashboard/lms" },
+        ] : []),
         { icon: ClipboardList, label: "Work Hub", path: "/dashboard/work" },
         { icon: Star, label: "Evaluations", path: "/dashboard/evaluations" },
       ],
@@ -75,18 +81,22 @@ export function Sidebar() {
     {
       title: "Administration",
       items: [
-        { icon: FileText, label: "Policy Vault", path: "/dashboard/policies" },
+        ...(isAdmin ? [{ icon: FileText, label: "Policy Vault", path: "/dashboard/policies" }] : []),
         { icon: Calendar, label: "Leave Mgmt", path: "/dashboard/leave" },
-        { icon: Network, label: "Org Structure", path: "/dashboard/org" },
-        { icon: Activity, label: "Live Monitor", path: "/dashboard/monitor", live: true },
+        ...(isAdmin ? [
+          { icon: Network, label: "Org Structure", path: "/dashboard/org" },
+          { icon: Activity, label: "Live Monitor", path: "/dashboard/monitor", live: true },
+        ] : []),
       ],
     },
     {
       title: "Intelligence",
       items: [
         { icon: Sparkles, label: "AI Co-Pilot", live: true, onClick: () => setAIPanel(true) },
-        ...(user?.role === "Admin" ? [{ icon: TrendingUp, label: "Reports", path: "/dashboard/reports" }] : []),
-        { icon: Target, label: "Talent IQ", path: "/dashboard/talent" },
+        ...(isAdmin ? [
+          { icon: TrendingUp, label: "Reports", path: "/dashboard/reports" },
+          { icon: Target, label: "Talent IQ", path: "/dashboard/talent" },
+        ] : []),
       ],
     },
   ];

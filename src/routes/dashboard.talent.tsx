@@ -9,6 +9,8 @@ import { Sparkles, Users, UserCheck, Send, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+import { useAuthStore } from "@/stores/authStore";
+
 export const Route = createFileRoute("/dashboard/talent")({ component: Talent });
 
 const stageLabels: Record<CandidateStage, string> = {
@@ -27,6 +29,22 @@ const stageColor: Record<CandidateStage, string> = {
 };
 
 function Talent() {
+  const user = useAuthStore((s) => s.user);
+
+  if (user?.role !== "Admin") {
+    return (
+      <div className="flex h-[400px] flex-col items-center justify-center gap-3 text-center">
+        <div className="rounded-full bg-rose-500/10 p-4 text-rose-500 animate-pulse">
+          <Users className="h-8 w-8" />
+        </div>
+        <h2 className="font-display text-[18px] font-bold text-white">Access Denied</h2>
+        <p className="max-w-md text-[13.5px] text-white/50 leading-relaxed">
+          This section contains recruiting candidate pipelines and metrics restricted to System Administrators only.
+        </p>
+      </div>
+    );
+  }
+
   const candidates = useHRMStore((s) => s.candidates);
   const moveCandidate = useHRMStore((s) => s.moveCandidate);
 

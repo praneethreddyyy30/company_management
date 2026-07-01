@@ -3,6 +3,8 @@ import { GlassCard } from "@/components/common/GlassCard";
 import { StatCard } from "@/components/common/StatCard";
 import { Package, Wallet, Truck, Receipt } from "lucide-react";
 
+import { useAuthStore } from "@/stores/authStore";
+
 export const Route = createFileRoute("/dashboard/erp")({ component: ERP });
 
 const modules = [
@@ -13,6 +15,21 @@ const modules = [
 ];
 
 function ERP() {
+  const user = useAuthStore((s) => s.user);
+
+  if (user?.role !== "Admin") {
+    return (
+      <div className="flex h-[400px] flex-col items-center justify-center gap-3 text-center">
+        <div className="rounded-full bg-rose-500/10 p-4 text-rose-500 animate-pulse">
+          <Package className="h-8 w-8" />
+        </div>
+        <h2 className="font-display text-[18px] font-bold text-white">Access Denied</h2>
+        <p className="max-w-md text-[13.5px] text-white/50 leading-relaxed">
+          This section contains enterprise resource planning details restricted to System Administrators only.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-6">
       <div>

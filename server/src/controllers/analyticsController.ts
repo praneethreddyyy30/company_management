@@ -328,40 +328,89 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
   }
 
   try {
-    const totalInternsCount = await Intern.countDocuments({});
-    const activeInternsCount = await Intern.countDocuments({ status: "active" });
-
-    // Today's Standups
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
-    const todayStandupsCount = await Standup.countDocuments({
-      date: { $gte: todayStart, $lte: todayEnd }
-    });
 
-    // Attendance Percentage (Average of active interns)
-    const activeInterns = await Intern.find({ status: "active" });
-    const attendancePercentage = activeInterns.length > 0
-      ? Math.round(activeInterns.reduce((sum, i) => sum + i.attendancePercentage, 0) / activeInterns.length)
-      : 100;
+    let totalInternsCount = 0;
+    let activeInternsCount = 0;
+    let todayStandupsCount = 0;
+    let attendancePercentage = 100;
+    let pendingLeaveCount = 0;
+    let overdueTasksCount = 0;
+    let recentActivityFeed: any[] = [];
 
-    const pendingLeaveCount = await LeaveRequest.countDocuments({ status: "Pending" });
+    if (req.user.role === "Lead") {
+      // Data Isolation: Leads only see stats for their mentored interns
+      const myInterns = await Intern.find({ mentorId: req.user.id });
+      const myInternUserIds = myInterns.map(i => i.userId);
+      const myInternIds = myInterns.map(i => i._id);
 
-    const overdueTasksCount = await Task.countDocuments({
-      status: { $ne: "Done" },
-      dueDate: { $lt: new Date() }
-    });
+      totalInternsCount = myInterns.length;
+      activeInternsCount = myInterns.filter(i => i.status === "active").length;
+
+      todayStandupsCount = await Standup.countDocuments({
+        internId: { $in: myInternUserIds },
+        date: { $gte: todayStart, $lte: todayEnd }
+      });
+
+      const activeMyInterns = myInterns.filter(i => i.status === "active");
+      attendancePercentage = activeMyInterns.length > 0
+        ? Math.round(activeMyInterns.reduce((sum, i) => sum + i.attendancePercentage, 0) / activeMyInterns.length)
+        : 100;
+
+      pendingLeaveCount = await LeaveRequest.countDocuments({
+        employeeId: { $in: myInternUserIds },
+        status: "Pending"
+      });
+
+      overdueTasksCount = await Task.countDocuments({
+        assignedTo: { $in: myInternUserIds },
+        status: { $ne: "Done" },
+        dueDate: { $lt: new Date() }
+      });
+
+      recentActivityFeed = await ActivityLog.find({
+        $or: [
+          { userId: req.user.id },
+          { internId: { $in: myInternIds } },
+          { userId: { $in: myInternUserIds } }
+        ]
+      })
+      .sort({ timestamp: -1 })
+      .limit(10);
+
+    } else {
+      // Admins (or other corporate users) see global numbers
+      totalInternsCount = await Intern.countDocuments({});
+      activeInternsCount = await Intern.countDocuments({ status: "active" });
+
+      todayStandupsCount = await Standup.countDocuments({
+        date: { $gte: todayStart, $lte: todayEnd }
+      });
+
+      const activeInterns = await Intern.find({ status: "active" });
+      attendancePercentage = activeInterns.length > 0
+        ? Math.round(activeInterns.reduce((sum, i) => sum + i.attendancePercentage, 0) / activeInterns.length)
+        : 100;
+
+      pendingLeaveCount = await LeaveRequest.countDocuments({ status: "Pending" });
+
+      overdueTasksCount = await Task.countDocuments({
+        status: { $ne: "Done" },
+        dueDate: { $lt: new Date() }
+      });
+
+      recentActivityFeed = await ActivityLog.find({})
+        .sort({ timestamp: -1 })
+        .limit(10);
+    }
 
     const notificationsCount = await Notification.countDocuments({
       recipientId: req.user.id,
       read: false
     });
-
-    // Recent Activity Feed
-    const recentActivityFeed = await ActivityLog.find({})
-      .sort({ timestamp: -1 })
-      .limit(10);
 
     res.status(200).json({
       totalInterns: totalInternsCount,

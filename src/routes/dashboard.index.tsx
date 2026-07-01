@@ -39,6 +39,7 @@ export const Route = createFileRoute("/dashboard/")({
 
 function Dashboard() {
   const user = useAuthStore((s) => s.user);
+  const isAdmin = user?.role === "Admin";
   const setAIPanel = useAppStore((s) => s.setAIPanel);
   const navigate = useNavigate();
   const tasks = useHRMStore((s) => s.tasks);
@@ -188,19 +189,27 @@ function Dashboard() {
       </div>
 
       {/* Ecosystem Map */}
-      <EcosystemMap />
+      {isAdmin && <EcosystemMap />}
 
       {/* Split row */}
       <div className="grid gap-6 lg:grid-cols-5">
-        <OrgIntelligence />
-        <ActivityFeed />
+        {isAdmin && (
+          <div className="lg:col-span-3">
+            <OrgIntelligence />
+          </div>
+        )}
+        <div className={isAdmin ? "lg:col-span-2" : "lg:col-span-5"}>
+          <ActivityFeed />
+        </div>
       </div>
 
       {/* Bottom row */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <Heatmap />
-        <LeaveAnalytics />
-        <QuickActions />
+        {isAdmin && <Heatmap />}
+        {isAdmin && <LeaveAnalytics />}
+        <div className={isAdmin ? "lg:col-span-1" : "lg:col-span-3"}>
+          <QuickActions />
+        </div>
       </div>
     </div>
   );
@@ -412,7 +421,7 @@ function OrgIntelligence() {
     employees.filter((e) => e.department === "Human Resources").slice(0, 3),
   ];
   return (
-    <GlassCard className="lg:col-span-3 p-5">
+    <GlassCard className="p-5">
       <div className="flex items-center justify-between">
         <div>
           <div className="font-display text-[15px] font-semibold">Organization Structure</div>
@@ -516,7 +525,7 @@ function ActivityFeed() {
         : "bg-kcyan/15 text-kcyan";
 
   return (
-    <GlassCard className="lg:col-span-2 flex h-[460px] flex-col p-5">
+    <GlassCard className="flex h-[460px] flex-col p-5">
       <div className="flex items-center justify-between">
         <div>
           <div className="font-display text-[15px] font-semibold">Enterprise Activity</div>
@@ -709,22 +718,27 @@ function LeaveAnalytics() {
 
 function QuickActions() {
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = user?.role === "Admin";
+
   const actions = [
-    {
-      icon: Plus,
-      label: "Add Employee",
-      color: "kcyan",
-      onClick: () => navigate({ to: "/dashboard/hrm" }),
-    },
-    {
-      icon: Upload,
-      label: "Upload Policy",
-      color: "kgold",
-      onClick: () => {
-        toast.success("Policy uploaded");
-        navigate({ to: "/dashboard/policies" });
+    ...(isAdmin ? [
+      {
+        icon: Plus,
+        label: "Add Employee",
+        color: "kcyan",
+        onClick: () => navigate({ to: "/dashboard/hrm" }),
       },
-    },
+      {
+        icon: Upload,
+        label: "Upload Policy",
+        color: "kgold",
+        onClick: () => {
+          toast.success("Policy uploaded");
+          navigate({ to: "/dashboard/policies" });
+        },
+      },
+    ] : []),
     {
       icon: Calendar,
       label: "Approve Leaves",
@@ -743,18 +757,20 @@ function QuickActions() {
       color: "korange",
       onClick: () => navigate({ to: "/dashboard/work" }),
     },
-    {
-      icon: Network,
-      label: "Add Candidate",
-      color: "kcyan",
-      onClick: () => navigate({ to: "/dashboard/talent" }),
-    },
+    ...(isAdmin ? [
+      {
+        icon: Network,
+        label: "Add Candidate",
+        color: "kcyan",
+        onClick: () => navigate({ to: "/dashboard/talent" }),
+      },
+    ] : []),
   ];
   return (
     <GlassCard className="p-5">
       <div className="font-display text-[15px] font-semibold">Quick Actions</div>
       <div className="text-[11px] text-white/45">One-tap workflows</div>
-      <div className="mt-4 grid grid-cols-2 gap-2.5">
+      <div className={cn("mt-4 grid gap-2.5", isAdmin ? "grid-cols-2" : "grid-cols-3")}>
         {actions.map((a) => (
           <button
             key={a.label}

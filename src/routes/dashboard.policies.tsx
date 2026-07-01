@@ -5,9 +5,26 @@ import { GlowBadge } from "@/components/common/GlowBadge";
 import { useHRMStore } from "@/stores/hrmStore";
 import { toast } from "sonner";
 
+import { useAuthStore } from "@/stores/authStore";
+
 export const Route = createFileRoute("/dashboard/policies")({ component: Policies });
 
 function Policies() {
+  const user = useAuthStore((s) => s.user);
+
+  if (user?.role !== "Admin") {
+    return (
+      <div className="flex h-[400px] flex-col items-center justify-center gap-3 text-center">
+        <div className="rounded-full bg-rose-500/10 p-4 text-rose-500 animate-pulse">
+          <FileText className="h-8 w-8" />
+        </div>
+        <h2 className="font-display text-[18px] font-bold text-white">Access Denied</h2>
+        <p className="max-w-md text-[13.5px] text-white/50 leading-relaxed">
+          This section contains central governance policies restricted to System Administrators only.
+        </p>
+      </div>
+    );
+  }
   const policies = useHRMStore((s) => s.policies);
   return (
     <div className="flex flex-col gap-6">
